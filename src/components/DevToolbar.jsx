@@ -201,8 +201,25 @@ export default function DevToolbar() {
 
           {/* Quick Dev Personas */}
           <div className="hidden xl:flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+            <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5 tracking-wider">
+              Test Persona:
+            </span>
             {personas.map(p => {
               const isSelected = p.id === activePersonaId;
+              const shortLabel =
+                p.id === 'site_admin' ? 'Principal'
+                : p.id === 'site_oa' ? 'Secretary'
+                : p.id === 'hr_sub' ? 'Sub HR'
+                : p.id === 'hr_classified' ? 'Classified HR'
+                : p.id === 'hr_certificated' ? 'Certificated HR'
+                : p.id === 'spec_acagnones' ? 'Alex C. (Email/Google)'
+                : p.id === 'spec_sunnygarcia' ? 'Sunny G. (Aeries)'
+                : p.id === 'spec_msakai' ? 'Melissa S. (Aeries)'
+                : p.id === 'spec_rrivas' ? 'Robert R. (Clever/Illum)'
+                : p.id === 'spec_mlewin' ? 'Melody L. (CAASPP)'
+                : p.id === 'super_admin' ? 'Admin'
+                : p.name.split(' ')[0];
+
               return (
                 <button
                   key={p.id}
@@ -210,12 +227,12 @@ export default function DevToolbar() {
                   onClick={() => switchPersona(p.id)}
                   className={`px-2 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
                     isSelected
-                      ? "bg-blue-600 text-white font-bold"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-blue-600 text-white font-bold shadow-xs"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                   }`}
-                  title={`${p.name} - ${p.email}`}
+                  title={`Switch test persona to: ${p.name} (${p.roleName})`}
                 >
-                  {p.roleName.includes("HR") ? "HR" : p.roleName.includes("Super") ? "Admin" : p.roleName.includes("Specialist") ? "Specialist" : p.roleName.includes("Principal") ? "Principal" : "Assistant"}
+                  {shortLabel}
                 </button>
               );
             })}

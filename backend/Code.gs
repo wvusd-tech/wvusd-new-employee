@@ -156,6 +156,17 @@ function findSheet(ss, possibleNames) {
 }
 
 /**
+ * Hardcoded fallback names for Tech Specialists (Col B emails -> Col C names)
+ */
+const TECH_SPECIALIST_FALLBACK_NAMES = {
+  "acagnones@wvusd.org": "Alex Cagnones",
+  "sunnygarcia@wvusd.org": "Sunny Garcia",
+  "msakai@wvusd.org": "Melissa Sakai",
+  "rrivas@wvusd.org": "Robert Rivas",
+  "mlewin@wvusd.org": "Melody Lewin"
+};
+
+/**
  * Helper: Routes request to the correct HR specialists based on Sub (C1), Classified (E1), Certificated (F1)
  * Rule:
  * 1. All sub requests (classified or certificated) -> Specialist!C1 (Sub HR)
@@ -164,12 +175,22 @@ function findSheet(ss, possibleNames) {
  */
 function getHrEmailsForRequest(specSheet, requestType, employeeType) {
   if (!specSheet) return [];
-  const row0 = specSheet.getRange(1, 1, 1, 6).getValues()[0];
-  const subEmails = parseEmailList(row0[2] || "");          // C1: Sub HR
-  const classifiedEmails = parseEmailList(row0[4] || "");   // E1: Classified HR
-  const certificatedEmails = parseEmailList(row0[5] || ""); // F1: Certificated HR
-  const allHr = [...new Set([...subEmails, ...classifiedEmails, ...certificatedEmails])];
+  let subEmails = [];
+  let classifiedEmails = [];
+  let certificatedEmails = [];
 
+  try {
+    subEmails = parseEmailList(specSheet.getRange("C1").getValue()); // C1: Sub HR
+    classifiedEmails = parseEmailList(specSheet.getRange("E1").getValue()); // E1: Classified HR
+    certificatedEmails = parseEmailList(specSheet.getRange("F1").getValue()); // F1: Certificated HR
+  } catch (e) {
+    const row0 = specSheet.getRange(1, 1, 1, 6).getValues()[0];
+    subEmails = parseEmailList(row0[2] || "");          // C1
+    classifiedEmails = parseEmailList(row0[4] || "");   // E1
+    certificatedEmails = parseEmailList(row0[5] || ""); // F1
+  }
+
+  const allHr = [...new Set([...subEmails, ...classifiedEmails, ...certificatedEmails])];
   const reqType = String(requestType || "").toLowerCase().trim();
   const empType = String(employeeType || "").toLowerCase().trim();
 
@@ -249,29 +270,50 @@ function getInitialData(userEmail) {
   let hrSubEmails = [];
   let hrClassifiedEmails = [];
   let hrCertificatedEmails = [];
+  let hrSubName = "";
+  let hrClassifiedName = "";
+  let hrCertificatedName = "";
   let superAdminEmails = [];
-  const services = []; // { serviceName, specialistEmails }
+  const services = []; // { serviceName, specialistEmails, specialistNames, specialistName }
 
   if (specSheet) {
     const specData = specSheet.getDataRange().getValues();
 
-    // Read Cell C1 (Sub HR), D1 (Super Admin), E1 (Classified HR), F1 (Certificated HR)
-    if (specData.length > 0) {
-      const row0 = specData[0];
-      if (row0.length > 2) hrSubEmails = parseEmailList(row0[2]);          // C1
-      if (row0.length > 3) superAdminEmails = parseEmailList(row0[3]);     // D1
-      if (row0.length > 4) hrClassifiedEmails = parseEmailList(row0[4]);   // E1
-      if (row0.length > 5) hrCertificatedEmails = parseEmailList(row0[5]); // F1
+    // Read HR Emails and Names from explicit cells:
+    // Sub HR: Email = Specialist!C1, Name = Specialist!H2
+    // Super Admin: Email = Specialist!D1
+    // Classified HR: Email = Specialist!E1, Name = Specialist!H3
+    // Certificated HR: Email = Specialist!F1, Name = Specialist!H4
+    try {
+      hrSubEmails = parseEmailList(specSheet.getRange("C1").getValue()); // C1: Sub HR
+      superAdminEmails = parseEmailList(specSheet.getRange("D1").getValue()); // D1: Super Admin
+      hrClassifiedEmails = parseEmailList(specSheet.getRange("E1").getValue()); // E1: Classified HR
+      hrCertificatedEmails = parseEmailList(specSheet.getRange("F1").getValue()); // F1: Certificated HR
+
+      hrSubName = String(specSheet.getRange("H2").getValue() || "").trim();
+      hrClassifiedName = String(specSheet.getRange("H3").getValue() || "").trim();
+      hrCertificatedName = String(specSheet.getRange("H4").getValue() || "").trim();
+    } catch (cellErr) {
+      if (specData.length > 0) {
+        const row0 = specData[0];
+        if (row0.length > 2) hrSubEmails = parseEmailList(row0[2]);          // C1
+        if (row0.length > 3) superAdminEmails = parseEmailList(row0[3]);     // D1
+        if (row0.length > 4) hrClassifiedEmails = parseEmailList(row0[4]);   // E1
+        if (row0.length > 5) hrCertificatedEmails = parseEmailList(row0[5]); // F1
+      }
+      if (specData.length > 1 && specData[1].length > 7) hrSubName = String(specData[1][7] || "").trim();
+      if (specData.length > 2 && specData[2].length > 7) hrClassifiedName = String(specData[2][7] || "").trim();
+      if (specData.length > 3 && specData[3].length > 7) hrCertificatedName = String(specData[3][7] || "").trim();
     }
 
-    // Read Topics (Col A) and Specialist Emails (Col B)
+    // Read Topics (Col A), Specialist Emails (Col B), and Specialist Names (Col C: C2:C9)
     for (let r = 0; r < specData.length; r++) {
       const topicName = String(specData[r][0] || "").trim();
       if (!topicName) continue;
 
       const lower = topicName.toLowerCase();
-      // Skip header labels
-      const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics"];
+      // Skip header labels and excluded services (e.g. ESCAPE)
+      const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics", "escape"];
       if (forbiddenHeaders.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) {
         continue;
       }
@@ -279,9 +321,21 @@ function getInitialData(userEmail) {
       const emailsRaw = specData[r][1] || "";
       const emailList = parseEmailList(emailsRaw);
 
+      // Read names from Col C (cells C2:C9)
+      const namesRaw = String(specData[r][2] || "").trim();
+      const sheetNames = namesRaw ? namesRaw.split(/[,;\n]+/).map(n => n.trim()).filter(Boolean) : [];
+
+      const specialistNames = emailList.map((email, idx) => {
+        if (sheetNames[idx]) return sheetNames[idx];
+        const cleanE = email.toLowerCase().trim();
+        return TECH_SPECIALIST_FALLBACK_NAMES[cleanE] || sheetNames[0] || email;
+      });
+
       services.push({
         serviceName: topicName,
-        specialistEmails: emailList
+        specialistEmails: emailList,
+        specialistNames: specialistNames,
+        specialistName: specialistNames.join(", ")
       });
     }
   }
@@ -381,6 +435,13 @@ function getInitialData(userEmail) {
     }
   }
 
+  // Resolve staff display name from sheet / hardcoded catalog
+  let userName = "";
+  if (isHrSub && hrSubName) userName = hrSubName;
+  else if (isHrClassified && hrClassifiedName) userName = hrClassifiedName;
+  else if (isHrCertificated && hrCertificatedName) userName = hrCertificatedName;
+  else if (TECH_SPECIALIST_FALLBACK_NAMES[cleanUserEmail]) userName = TECH_SPECIALIST_FALLBACK_NAMES[cleanUserEmail];
+
   return {
     requests: requests,
     services: services,
@@ -389,9 +450,15 @@ function getInitialData(userEmail) {
     hrSubEmails: hrSubEmails,
     hrClassifiedEmails: hrClassifiedEmails,
     hrCertificatedEmails: hrCertificatedEmails,
+    hrSpecialists: {
+      sub: { name: hrSubName || "Sub HR Coordinator", emails: hrSubEmails },
+      classified: { name: hrClassifiedName || "Classified HR Coordinator", emails: hrClassifiedEmails },
+      certificated: { name: hrCertificatedName || "Certificated HR Coordinator", emails: hrCertificatedEmails }
+    },
     superAdminEmails: superAdminEmails,
     currentUser: {
       email: cleanUserEmail,
+      name: userName,
       isSuperAdmin: Boolean(isSuperAdmin),
       isHr: Boolean(isHr),
       isHrSub: Boolean(isHrSub),
@@ -433,8 +500,8 @@ function submitRequest(payload) {
     requestedServices = String(payload.requestedServices).split(",").map(s => s.trim()).filter(Boolean);
   }
 
-  // Filter out header labels from requested services
-  const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics"];
+  // Filter out header labels and excluded services (e.g. ESCAPE)
+  const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics", "escape"];
   requestedServices = requestedServices.filter(s => !forbiddenHeaders.includes(s.toLowerCase()));
 
   if (!site || !firstName || !lastName) {
@@ -844,7 +911,7 @@ function adminOverride(payload) {
     const adminEmailsRaw = specSheet.getRange("D1").getValue();
     const superAdminList = parseEmailList(adminEmailsRaw);
     if (!superAdminList.includes(adminEmail)) {
-      return { success: false, error: "Unauthorized: Super Admin credentials required (Cell D1)." };
+      return { success: false, error: "Unauthorized: Super Administrator credentials required." };
     }
   }
 

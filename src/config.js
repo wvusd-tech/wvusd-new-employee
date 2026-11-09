@@ -89,7 +89,7 @@ export const DEV_PERSONAS = [
     id: "hr_sub",
     name: "Sarah Chen (Sub HR Coordinator)",
     email: "hr-sub@wvusd.org",
-    roleName: "Sub HR Coordinator (Cell C1)",
+    roleName: "Sub HR Coordinator",
     site: "District Office",
     description: "Long-Term Sub onboarding queue"
   },
@@ -97,7 +97,7 @@ export const DEV_PERSONAS = [
     id: "hr_classified",
     name: "Rachel Miller (Classified HR)",
     email: "hr-classified@wvusd.org",
-    roleName: "Classified HR Coordinator (Cell E1)",
+    roleName: "Classified HR Coordinator",
     site: "District Office",
     description: "Classified employee onboarding queue"
   },
@@ -105,39 +105,55 @@ export const DEV_PERSONAS = [
     id: "hr_certificated",
     name: "David Kim (Certificated HR)",
     email: "hr-certificated@wvusd.org",
-    roleName: "Certificated HR Coordinator (Cell F1)",
+    roleName: "Certificated HR Coordinator",
     site: "District Office",
     description: "Certificated employee onboarding queue"
   },
   {
-    id: "tech_specialist_a",
-    name: "Alex Martinez (Email & Classroom Specialist)",
-    email: "tech-a@wvusd.org",
-    roleName: "Specialist A (Email, Google Classroom)",
+    id: "spec_acagnones",
+    name: "Alex Cagnones",
+    email: "acagnones@wvusd.org",
+    roleName: "Alex Cagnones (Email, Google, Lists)",
     site: "District Technology",
-    description: "Oversees Email and Google Classroom from Col A"
+    description: "Oversees Outlook Email, Google Account, Staff Email List, Teacher Accounts"
   },
   {
-    id: "tech_specialist_b",
-    name: "Brian Lee (Clever Specialist)",
-    email: "tech-b@wvusd.org",
-    roleName: "Specialist B (Clever)",
+    id: "spec_sunnygarcia",
+    name: "Sunny Garcia",
+    email: "sunnygarcia@wvusd.org",
+    roleName: "Sunny Garcia (Aeries)",
     site: "District Technology",
-    description: "Oversees Clever from Col A"
+    description: "Oversees Aeries SIS Access"
   },
   {
-    id: "tech_specialist_c",
-    name: "Chloe Davis (Aeries & Illuminate Specialist)",
-    email: "tech-c@wvusd.org",
-    roleName: "Specialist C (Aeries, Illuminate)",
+    id: "spec_msakai",
+    name: "Melissa Sakai",
+    email: "msakai@wvusd.org",
+    roleName: "Melissa Sakai (Aeries)",
     site: "District Technology",
-    description: "Oversees Aeries and Illuminate from Col A"
+    description: "Oversees Aeries SIS Access"
+  },
+  {
+    id: "spec_rrivas",
+    name: "Robert Rivas",
+    email: "rrivas@wvusd.org",
+    roleName: "Robert Rivas (Clever, Illuminate)",
+    site: "District Technology",
+    description: "Oversees Clever & Illuminate"
+  },
+  {
+    id: "spec_mlewin",
+    name: "Melody Lewin",
+    email: "mlewin@wvusd.org",
+    roleName: "Melody Lewin (CAASPP)",
+    site: "District Technology",
+    description: "Oversees CAASPP Access"
   },
   {
     id: "super_admin",
     name: "Super Administrator",
     email: "admin@wvusd.org",
-    roleName: "Super Admin (Cell D1)",
+    roleName: "Super Administrator",
     site: "All Sites",
     description: "Global view across all sites with full override access"
   }

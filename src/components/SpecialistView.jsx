@@ -127,7 +127,7 @@ export default function SpecialistView() {
 
       if (res.success) {
         const demoNote = isDemoMode ? " (Demo Mode: Live email suppressed)" : "";
-        setCommentSuccess(`Note logged and notification dispatched to HR (Cell C1).${demoNote}`);
+        setCommentSuccess(`Note logged and notification dispatched to HR.${demoNote}`);
         setCommentText('');
         await refreshData();
         setTimeout(() => {
@@ -152,8 +152,8 @@ export default function SpecialistView() {
             <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 tracking-wider">
               Specialist Task Flow
             </span>
-            <span className="text-emerald-300 font-mono text-xs hidden sm:inline">
-              Col B (Rows 3+)
+            <span className="text-emerald-300 font-medium text-xs hidden sm:inline">
+              Assigned Services
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black mt-2">
@@ -173,7 +173,7 @@ export default function SpecialistView() {
                 </span>
               ))
             ) : (
-              <span className="text-xs text-amber-300 italic">No assigned services found for this email in Col B.</span>
+              <span className="text-xs text-amber-300 italic">No assigned services found for this account.</span>
             )}
           </div>
         </div>
@@ -189,7 +189,7 @@ export default function SpecialistView() {
               My Provisioning Queue
             </h3>
             <p className="text-xs text-slate-500">
-              Overseeing only systems assigned to you in Col A • Items disappear once you complete your portion
+              Overseeing only systems assigned to you • Items disappear once you complete your portion
             </p>
           </div>
 
@@ -389,10 +389,11 @@ export default function SpecialistView() {
                   {/* Actions & Comment Drawer Toggle */}
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                     <button
+                      type="button"
                       onClick={() => setSelectedRequestForModal(req)}
-                      className="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition flex items-center gap-1 font-medium"
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3.5 h-3.5 text-slate-500" />
                       <span>Details</span>
                     </button>
 
@@ -412,7 +413,7 @@ export default function SpecialistView() {
                   {commentingRequestId === req.id && (
                     <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 animate-fade-in mt-2">
                       <label className="block text-[11px] font-bold text-slate-600 uppercase">
-                        Add Note / Alert for HR (Cell C1):
+                        Add Note / Alert for HR:
                       </label>
                       <textarea
                         rows={2}

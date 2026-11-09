@@ -165,11 +165,11 @@ export default function HrView() {
             </span>
             <span className="text-amber-300 font-mono text-xs hidden sm:inline">
               {roleScope === 'sub'
-                ? 'Cell C1 Coordinator (Long-Term Subs)'
+                ? 'Sub HR Coordinator (Long-Term Subs)'
                 : roleScope === 'classified'
-                ? 'Cell E1 Coordinator (Classified)'
+                ? 'Classified HR Coordinator'
                 : roleScope === 'certificated'
-                ? 'Cell F1 Coordinator (Certificated)'
+                ? 'Certificated HR Coordinator'
                 : 'All HR Classifications'}
             </span>
           </div>
@@ -206,9 +206,9 @@ export default function HrView() {
               ? 'bg-purple-700 text-white shadow-sm'
               : 'text-purple-700 hover:bg-purple-50'
           }`}
-          title="All Sub requests (Classified or Certificated) routed to Cell C1"
+          title="All Sub requests (Classified or Certificated)"
         >
-          Subs (Cell C1) ({
+          Long-Term Subs ({
             portalData.requests.filter(r => r.requestType === 'Long-Term Sub' || String(r.employeeType).toLowerCase() === 'substitute').length
           })
         </button>
@@ -220,9 +220,9 @@ export default function HrView() {
               ? 'bg-emerald-700 text-white shadow-sm'
               : 'text-emerald-700 hover:bg-emerald-50'
           }`}
-          title="All Classified New Employees routed to Cell E1"
+          title="All Classified New Employees"
         >
-          Classified (Cell E1) ({
+          Classified Staff ({
             portalData.requests.filter(r => r.requestType !== 'Long-Term Sub' && String(r.employeeType).toLowerCase().includes('class')).length
           })
         </button>
@@ -234,9 +234,9 @@ export default function HrView() {
               ? 'bg-indigo-700 text-white shadow-sm'
               : 'text-indigo-700 hover:bg-indigo-50'
           }`}
-          title="All Certificated New Employees routed to Cell F1"
+          title="All Certificated New Employees"
         >
-          Certificated (Cell F1) ({
+          Certificated Staff ({
             portalData.requests.filter(r => r.requestType !== 'Long-Term Sub' && String(r.employeeType).toLowerCase().includes('cert')).length
           })
         </button>
@@ -509,10 +509,11 @@ export default function HrView() {
                   {/* Card Bottom Actions */}
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                     <button
+                      type="button"
                       onClick={() => setDetailsModalRequest(req)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition flex items-center gap-1"
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3.5 h-3.5 text-slate-500" />
                       <span>Details</span>
                     </button>
 

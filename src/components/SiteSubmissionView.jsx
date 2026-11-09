@@ -63,7 +63,8 @@ export default function SiteSubmissionView() {
     'systems',
     'topic name',
     'service name',
-    'all topics'
+    'all topics',
+    'escape'
   ];
 
   const availableServices = (portalData.services || [])
@@ -302,10 +303,10 @@ export default function SiteSubmissionView() {
                 <span className="font-medium">Intake Destination:</span>
                 <span className="font-bold text-slate-700">
                   {requestType === 'Long-Term Sub'
-                    ? 'Sub HR Coordinator (Specialist!C1)'
+                    ? 'Sub HR Coordinator'
                     : employeeType === 'Classified'
-                    ? 'Classified HR Coordinator (Specialist!E1)'
-                    : 'Certificated HR Coordinator (Specialist!F1)'}
+                    ? 'Classified HR Coordinator'
+                    : 'Certificated HR Coordinator'}
                 </span>
               </div>
             </div>
@@ -585,11 +586,12 @@ export default function SiteSubmissionView() {
 
                         <td className="py-3 px-3 text-right">
                           <button
+                            type="button"
                             onClick={() => setSelectedRequestForModal(req)}
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition inline-flex items-center gap-1 font-semibold text-[11px]"
-                            title="View full audit record"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 shadow-xs transition-all duration-150 cursor-pointer active:scale-95 group"
+                            title="View request details and audit history"
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
                             <span>Details</span>
                           </button>
                         </td>

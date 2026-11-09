@@ -52,7 +52,7 @@ function MainApp() {
             Walnut Valley Unified School District • Onboarding & System Access Automation Portal
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
-            Role-Based Access Control: Site Staff, HR Specialist (Cell C1), Service Specialists (Col B), Super Admin (Cell D1)
+            Role-Based Access Control: Site Staff, HR Coordinators, System Specialists, District Administration
           </p>
         </div>
       </footer>

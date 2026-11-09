@@ -147,7 +147,7 @@ export function AuthProvider({ children }) {
 
   // Helper to filter out header words like "Topics", "Topic", etc. from services
   const filterForbiddenHeaders = (servicesList) => {
-    const FORBIDDEN = ['topic', 'topics', 'service', 'services', 'system', 'systems', 'topic name', 'service name', 'all topics'];
+    const FORBIDDEN = ['topic', 'topics', 'service', 'services', 'system', 'systems', 'topic name', 'service name', 'all topics', 'escape'];
     return (servicesList || []).filter(s => {
       const name = (typeof s === 'string' ? s : s?.serviceName || '').trim().toLowerCase();
       if (!name) return false;
@@ -264,16 +264,19 @@ export function AuthProvider({ children }) {
         roles.isHr = true;
       }
 
-      if (persona.id === 'tech_specialist_a') {
+      if (persona.id === 'spec_acagnones') {
         roles.isSpecialist = true;
-        roles.assignedServices = ["Outlook Email", "Google Classroom"];
-      } else if (persona.id === 'tech_specialist_b') {
+        roles.assignedServices = ["Outlook Email", "Google Account", "add to Staff Email List", "Access to Teacher's accounts"];
+      } else if (persona.id === 'spec_sunnygarcia' || persona.id === 'spec_msakai') {
         roles.isSpecialist = true;
-        roles.assignedServices = ["Clever"];
-      } else if (persona.id === 'tech_specialist_c') {
+        roles.assignedServices = ["Aeries"];
+      } else if (persona.id === 'spec_rrivas') {
         roles.isSpecialist = true;
-        roles.assignedServices = ["Aeries", "Illuminate"];
-      } else if (persona.id === 'service_specialist') {
+        roles.assignedServices = ["Clever", "Illuminate"];
+      } else if (persona.id === 'spec_mlewin') {
+        roles.isSpecialist = true;
+        roles.assignedServices = ["CAASPP"];
+      } else if (persona.id.startsWith('tech_specialist') || persona.id === 'service_specialist') {
         roles.isSpecialist = true;
         if (!roles.assignedServices || roles.assignedServices.length === 0) {
           roles.assignedServices = cleanServices.map(s => s.serviceName || s);
@@ -301,7 +304,7 @@ export function AuthProvider({ children }) {
       // Explicitly transition active tab to the persona's designated view!
       if (persona.id.startsWith('hr_')) {
         setActiveTab('hr');
-      } else if (persona.id.startsWith('tech_specialist') || persona.id === 'service_specialist') {
+      } else if (persona.id.startsWith('spec_') || persona.id.startsWith('tech_specialist') || persona.id === 'service_specialist') {
         setActiveTab('specialist');
       } else if (persona.id === 'super_admin') {
         setActiveTab('admin');

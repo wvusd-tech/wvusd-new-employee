@@ -7,6 +7,14 @@ import { APPS_SCRIPT_URL } from '../config.js';
 const STORAGE_KEY_LOCAL_DATA = "wvusd_onboarding_local_data_v1";
 
 // Default Seed Data
+export const TECH_SPECIALIST_FALLBACK_NAMES = {
+  "acagnones@wvusd.org": "Alex Cagnones",
+  "sunnygarcia@wvusd.org": "Sunny Garcia",
+  "msakai@wvusd.org": "Melissa Sakai",
+  "rrivas@wvusd.org": "Robert Rivas",
+  "mlewin@wvusd.org": "Melody Lewin"
+};
+
 const DEFAULT_SEED_DATA = {
   requests: [
     {
@@ -90,13 +98,14 @@ const DEFAULT_SEED_DATA = {
     }
   ],
   services: [
-    { serviceName: "Outlook Email", specialistEmails: ["tech-a@wvusd.org", "tech@wvusd.org"] },
-    { serviceName: "Google Classroom", specialistEmails: ["tech-a@wvusd.org", "tech@wvusd.org"] },
-    { serviceName: "Clever", specialistEmails: ["tech-b@wvusd.org", "tech@wvusd.org"] },
-    { serviceName: "Illuminate", specialistEmails: ["tech-c@wvusd.org", "tech@wvusd.org"] },
-    { serviceName: "Aeries", specialistEmails: ["tech-c@wvusd.org", "tech@wvusd.org", "sis@wvusd.org"] },
-    { serviceName: "Door Badge & Physical Access", specialistEmails: ["facilities@wvusd.org", "security@wvusd.org"] },
-    { serviceName: "Active Directory & Network Login", specialistEmails: ["tech@wvusd.org", "sysadmin@wvusd.org"] }
+    { serviceName: "Outlook Email", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" },
+    { serviceName: "Aeries", specialistEmails: ["sunnygarcia@wvusd.org", "msakai@wvusd.org"], specialistNames: ["Sunny Garcia", "Melissa Sakai"], specialistName: "Sunny Garcia, Melissa Sakai" },
+    { serviceName: "Google Account", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" },
+    { serviceName: "Clever", specialistEmails: ["rrivas@wvusd.org"], specialistNames: ["Robert Rivas"], specialistName: "Robert Rivas" },
+    { serviceName: "Illuminate", specialistEmails: ["rrivas@wvusd.org"], specialistNames: ["Robert Rivas"], specialistName: "Robert Rivas" },
+    { serviceName: "add to Staff Email List", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" },
+    { serviceName: "Access to Teacher's accounts", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" },
+    { serviceName: "CAASPP", specialistEmails: ["mlewin@wvusd.org"], specialistNames: ["Melody Lewin"], specialistName: "Melody Lewin" }
   ],
   sites: [
     { siteName: "Diamond Bar High", principalEmails: ["principal.dbhs@wvusd.org"], officeEmails: ["oa.dbhs@wvusd.org", "kwendland@wvusd.org"] },
@@ -204,8 +213,14 @@ export function computeUserRoles(email, { hrEmails, hrSubEmails, hrClassifiedEma
   });
   const isSiteStaff = authorizedSites.length > 0;
 
+  let name = "";
+  if (TECH_SPECIALIST_FALLBACK_NAMES[cleanEmail]) {
+    name = TECH_SPECIALIST_FALLBACK_NAMES[cleanEmail];
+  }
+
   return {
     email: cleanEmail,
+    name: name,
     isSuperAdmin,
     isHr,
     isHrSub,

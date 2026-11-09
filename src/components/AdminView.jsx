@@ -160,8 +160,8 @@ export default function AdminView() {
             <span className="px-3 py-1 rounded-full text-xs font-black uppercase bg-purple-500/30 text-purple-200 border border-purple-400/40 tracking-wider">
               Super Admin Control Console
             </span>
-            <span className="text-purple-300 font-mono text-xs hidden sm:inline">
-              Cell D1 Master Access
+            <span className="text-purple-300 font-medium text-xs hidden sm:inline">
+              District Administration
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black mt-2">
