@@ -7,7 +7,7 @@ A full-stack dashboard for Walnut Valley Unified School District (WVUSD) to auto
 ## 🏛 Architecture & Tech Stack
 
 - **Frontend:** React 19, Vite, Tailwind CSS, Lucide React
-- **Authentication:** WVUSD Google Workspace Single Sign-On (`@react-oauth/google`, `jwt-decode`) with strict `@wvusd.org` and `@sub.wvusd.org` domain lock
+- **Authentication:** WVUSD Google Workspace Single Sign-On (`@react-oauth/google`, `jwt-decode`) with strict `@wvusd.org` domain lock
 - **Development Tooling:** Integrated top **Dev Persona Switcher** allowing instant 1-click toggling between the 5 personas
 - **Backend & Database:** Google Apps Script Web App (`backend/Code.gs`) communicating with a Google Spreadsheet (`Requests`, `Specialists`, and `Sites` tabs)
 

@@ -14,7 +14,7 @@ export const DISTRICT_SHIELD =
 export const GOOGLE_CLIENT_ID =
   "243489966839-kcopbaj692oat1p2hoq5lrcddq9n4k17.apps.googleusercontent.com";
 
-export const ALLOWED_DOMAINS = ["wvusd.org", "sub.wvusd.org"];
+export const ALLOWED_DOMAINS = ["wvusd.org"];
 
 export const APPS_SCRIPT_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_APPS_SCRIPT_URL) ||
@@ -54,7 +54,7 @@ export function getSiteLogo(siteName) {
 }
 
 /**
- * Checks whether an email address is an authorized @wvusd.org or @sub.wvusd.org staff account
+ * Checks whether an email address is an authorized @wvusd.org staff account
  */
 export function isValidWvusdEmail(email) {
   if (!email) return false;

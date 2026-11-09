@@ -84,7 +84,7 @@ export default function LoginView({ onLoginSuccess }) {
               Student accounts (<code className="text-rose-600 font-bold">@stu.wvusd.org</code>) and personal Gmail accounts are prohibited from accessing onboarding systems.
             </p>
             <p className="text-[11px] text-slate-500">
-              Only authenticated <code className="text-blue-700 font-bold">@wvusd.org</code> and <code className="text-blue-700 font-bold">@sub.wvusd.org</code> staff credentials are authorized.
+              Only authenticated <code className="text-blue-700 font-bold">@wvusd.org</code> staff credentials are authorized.
             </p>
           </div>
 
@@ -178,7 +178,7 @@ export default function LoginView({ onLoginSuccess }) {
           </div>
 
           <div className="text-xs text-slate-500 text-center leading-relaxed">
-            Restricted to authenticated <strong className="text-slate-700">@wvusd.org</strong> and <strong className="text-slate-700">@sub.wvusd.org</strong> accounts
+            Restricted to authenticated <strong className="text-slate-700">@wvusd.org</strong> accounts
           </div>
 
           {/* Quick Dev Persona Login Launcher */}
