@@ -55,10 +55,10 @@ export default function Navbar({ activeTab, setActiveTab }) {
   const badge = getRoleBadge();
 
   // Determine which tabs this user is allowed to navigate between
-  const canSeeSite = user?.isSuperAdmin || user?.isSiteStaff;
-  const canSeeHr = user?.isSuperAdmin || user?.isHr;
-  const canSeeSpecialist = user?.isSuperAdmin || user?.isSpecialist;
-  const canSeeAdmin = user?.isSuperAdmin;
+  const canSeeSite = user?.isSuperAdmin || user?.isSiteStaff || isDemoMode;
+  const canSeeHr = user?.isSuperAdmin || user?.isHr || isDemoMode;
+  const canSeeSpecialist = user?.isSuperAdmin || user?.isSpecialist || isDemoMode;
+  const canSeeAdmin = user?.isSuperAdmin || isDemoMode;
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">

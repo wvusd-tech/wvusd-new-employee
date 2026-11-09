@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import DevToolbar from './components/DevToolbar.jsx';
 import Navbar from './components/Navbar.jsx';
@@ -10,36 +10,34 @@ import SpecialistView from './components/SpecialistView.jsx';
 import AdminView from './components/AdminView.jsx';
 
 function MainApp() {
-  const { user, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState('site');
+  const { user, isLoading, activeTab, setActiveTab } = useAuth();
 
-  // Automatically switch default active tab when persona / role changes
-  useEffect(() => {
-    if (user?.isSuperAdmin) {
-      setActiveTab('admin');
-    } else if (user?.isHr) {
-      setActiveTab('hr');
-    } else if (user?.isSpecialist) {
-      setActiveTab('specialist');
-    } else if (user?.isSiteStaff) {
-      setActiveTab('site');
-    }
-  }, [user?.email, user?.isSuperAdmin, user?.isHr, user?.isSpecialist, user?.isSiteStaff]);
-
-  // If user is not signed in
+  // If user is not signed in, show the WVUSD Login Screen
   if (!user && !isLoading) {
     return <LoginView />;
   }
 
+  // Loading spinner during initial auth check
+  if (isLoading && !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex items-center gap-3 text-sm font-bold text-blue-700 bg-blue-50 px-6 py-3 rounded-2xl border border-blue-200 shadow-sm">
+          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span>Connecting to WVUSD Onboarding Portal...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
-      {/* Dev Switcher Toolbar */}
-      <DevToolbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* Dev Switcher & Demo Toolbar */}
+      <DevToolbar />
 
       {/* Main Navigation Header */}
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* Main Body */}
+      {/* Main Body - Renders ONLY the active view */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'site' && <SiteSubmissionView />}
         {activeTab === 'hr' && <HrView />}
@@ -54,7 +52,7 @@ function MainApp() {
             Walnut Valley Unified School District • Onboarding & System Access Automation Portal
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
-            Integrated Google Sheets REST Backend • RBAC Protocols for Site Staff, HR (Cell C1), Specialists (Col B), and Super Admin (Cell D1)
+            Role-Based Access Control: Site Staff, HR Specialist (Cell C1), Service Specialists (Col B), Super Admin (Cell D1)
           </p>
         </div>
       </footer>

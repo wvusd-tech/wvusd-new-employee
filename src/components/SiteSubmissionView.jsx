@@ -51,8 +51,28 @@ export default function SiteSubmissionView() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedRequestForModal, setSelectedRequestForModal] = useState(null);
 
-  // Available services from backend
-  const availableServices = portalData.services.map(s => s.serviceName);
+  // Available services from backend, strictly filtering out sheet header labels like "Topics"
+  const FORBIDDEN_HEADERS = [
+    'topic',
+    'topics',
+    'service',
+    'services',
+    'system',
+    'systems',
+    'topic name',
+    'service name',
+    'all topics'
+  ];
+
+  const availableServices = (portalData.services || [])
+    .map(s => (typeof s === 'string' ? s : s.serviceName))
+    .filter(name => {
+      if (!name) return false;
+      const lower = String(name).trim().toLowerCase();
+      if (FORBIDDEN_HEADERS.includes(lower)) return false;
+      if (lower.startsWith('---') || lower.startsWith('(')) return false;
+      return true;
+    });
 
   // Toggle single service
   const toggleService = (serviceName) => {
@@ -332,26 +352,27 @@ export default function SiteSubmissionView() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-2 max-h-52 overflow-y-auto p-2 bg-slate-50 rounded-2xl border border-slate-200">
+              {/* Expanded container showing all services clearly without cramped scrollbar */}
+              <div className="grid grid-cols-1 gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
                 {availableServices.map(service => {
                   const isChecked = selectedServices.includes(service);
                   return (
                     <label
                       key={service}
                       onClick={() => toggleService(service)}
-                      className={`flex items-center gap-2.5 p-2 rounded-xl cursor-pointer text-xs transition ${
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer text-xs transition border ${
                         isChecked
-                          ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200'
-                          : 'hover:bg-slate-100 text-slate-700'
+                          ? 'bg-blue-50/80 text-blue-900 font-bold border-blue-300 shadow-2xs'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => {}} // handled by parent onClick
-                        className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                       />
-                      <span>{service}</span>
+                      <span className="text-sm font-medium">{service}</span>
                     </label>
                   );
                 })}

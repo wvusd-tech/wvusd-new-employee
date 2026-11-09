@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { resetMockData } from '../services/api.js';
 
-export default function DevToolbar({ activeTab, setActiveTab }) {
+export default function DevToolbar() {
   const {
     user,
     activePersonaId,
@@ -33,7 +33,9 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
     impersonatedSite,
     setImpersonatedSite,
     impersonatedTopic,
-    setImpersonatedTopic
+    setImpersonatedTopic,
+    activeTab,
+    setActiveTab
   } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -51,13 +53,14 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
     }
   };
 
-  // Switch role view for Super Admin
+  // Switch role view for Super Admin or in Demo Mode
   const handleSuperAdminRoleSwitch = (roleKey) => {
     setImpersonatedRole(roleKey);
-    if (setActiveTab) {
-      setActiveTab(roleKey);
-    }
+    setActiveTab(roleKey);
   };
+
+  // Show view switcher if user is Super Admin, or in Demo Mode, or in Dev persona
+  const canAccessAdminControls = isSuperAdminUser || isDemoMode || user?.isSuperAdmin || activePersonaId === 'super_admin';
 
   return (
     <div className="bg-slate-950 border-b border-slate-800 text-slate-200 text-xs px-4 py-2 sticky top-0 z-50 shadow-md">
@@ -69,12 +72,12 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
           <button
             onClick={toggleDemoMode}
             type="button"
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${
               isDemoMode
                 ? "bg-amber-500 hover:bg-amber-400 text-slate-950 ring-2 ring-amber-300/50"
                 : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
             }`}
-            title="Click to toggle Demo Mode: safely view and test all parts of the system with live emails suppressed"
+            title="Click to toggle Demo Mode: safely view and test all parts of the system with demo data & live emails suppressed"
           >
             {isDemoMode ? (
               <>
@@ -93,7 +96,7 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
           {isDemoMode ? (
             <span className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-300 bg-amber-950/60 px-2.5 py-1 rounded-lg border border-amber-800/60">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" />
-              Live Emails Suppressed • Safe System Testing
+              Demo Data Loaded • Live Emails Suppressed
             </span>
           ) : (
             <span className="text-[11px] text-slate-400 hidden sm:inline">
@@ -105,18 +108,19 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
         {/* Center / Right Section: Super Admin Role View Toggle & Quick Personas */}
         <div className="flex flex-wrap items-center gap-2">
           
-          {/* If current user is Super Admin: Show Role & Site View Switcher */}
-          {isSuperAdminUser && (
+          {/* Super Admin / Demo View Switcher */}
+          {canAccessAdminControls && (
             <div className="flex flex-wrap items-center gap-1.5 bg-purple-950/70 p-1 rounded-xl border border-purple-800/80">
               <span className="text-[10px] font-bold text-purple-300 uppercase px-2 tracking-wider flex items-center gap-1">
                 <Eye className="w-3 h-3 text-purple-400" />
-                Super Admin View:
+                Switch View:
               </span>
 
               {/* View as Super Admin */}
               <button
+                type="button"
                 onClick={() => handleSuperAdminRoleSwitch('admin')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
                   activeTab === 'admin'
                     ? "bg-purple-600 text-white shadow-xs"
                     : "text-purple-300 hover:bg-purple-900/60"
@@ -127,8 +131,9 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
 
               {/* View as HR Specialist */}
               <button
+                type="button"
                 onClick={() => handleSuperAdminRoleSwitch('hr')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
                   activeTab === 'hr'
                     ? "bg-amber-600 text-white shadow-xs"
                     : "text-purple-300 hover:bg-purple-900/60"
@@ -139,8 +144,9 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
 
               {/* View as Specialist */}
               <button
+                type="button"
                 onClick={() => handleSuperAdminRoleSwitch('specialist')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
                   activeTab === 'specialist'
                     ? "bg-emerald-600 text-white shadow-xs"
                     : "text-purple-300 hover:bg-purple-900/60"
@@ -151,8 +157,9 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
 
               {/* View as Site Staff */}
               <button
+                type="button"
                 onClick={() => handleSuperAdminRoleSwitch('site')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
                   activeTab === 'site'
                     ? "bg-blue-600 text-white shadow-xs"
                     : "text-purple-300 hover:bg-purple-900/60"
@@ -199,8 +206,9 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
               return (
                 <button
                   key={p.id}
+                  type="button"
                   onClick={() => switchPersona(p.id)}
-                  className={`px-2 py-1 rounded-lg text-[11px] font-medium transition ${
+                  className={`px-2 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
                     isSelected
                       ? "bg-blue-600 text-white font-bold"
                       : "text-slate-400 hover:text-slate-200"
@@ -215,10 +223,11 @@ export default function DevToolbar({ activeTab, setActiveTab }) {
 
           {/* Reset Mock */}
           <button
+            type="button"
             onClick={handleResetData}
             disabled={isResetting}
             title="Reset sample records in local storage"
-            className="flex items-center gap-1 px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg border border-slate-800 transition text-[11px]"
+            className="flex items-center gap-1 px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg border border-slate-800 transition text-[11px] cursor-pointer"
           >
             <RefreshCw className={`w-3 h-3 ${isResetting ? "animate-spin text-amber-400" : ""}`} />
             <span className="hidden sm:inline">Reset</span>

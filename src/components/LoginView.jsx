@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function LoginView({ onLoginSuccess }) {
-  const { loginWithEmail, switchPersona, isLoading, authError } = useAuth();
+  const { loginWithEmail, switchPersona, launchDemoMode, isLoading, authError } = useAuth();
   const [localError, setLocalError] = useState(null);
   const [domainBlocked, setDomainBlocked] = useState(false);
   const [blockedEmail, setBlockedEmail] = useState('');
@@ -165,7 +165,19 @@ export default function LoginView({ onLoginSuccess }) {
             </div>
           )}
 
-          <div className="text-xs text-slate-500 pt-2 border-t border-slate-100 text-center leading-relaxed">
+          {/* Quick Demo Mode Launcher */}
+          <div className="pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={launchDemoMode}
+              className="w-full py-2.5 px-4 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-amber-600" />
+              <span>Explore in Demo Mode (Test all roles & views safely)</span>
+            </button>
+          </div>
+
+          <div className="text-xs text-slate-500 text-center leading-relaxed">
             Restricted to authenticated <strong className="text-slate-700">@wvusd.org</strong> and <strong className="text-slate-700">@sub.wvusd.org</strong> accounts
           </div>
 

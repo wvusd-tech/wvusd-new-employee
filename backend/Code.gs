@@ -226,8 +226,9 @@ function getInitialData(userEmail) {
       if (!topicName) continue;
 
       const lower = topicName.toLowerCase();
-      // Skip header labels like "Topic", "Service", "System", or separator dashes
-      if (lower === "topic" || lower === "service" || lower === "system" || lower.startsWith("---")) {
+      // Skip header labels like "Topic", "Topics", "Service", "Services", or separator dashes
+      const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name"];
+      if (forbiddenHeaders.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) {
         continue;
       }
 
@@ -500,7 +501,8 @@ function assignEmail(payload) {
       if (!topicName) continue;
 
       const lower = topicName.toLowerCase();
-      if (lower === "topic" || lower === "service" || lower === "system" || lower.startsWith("---")) {
+      const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name"];
+      if (forbiddenHeaders.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) {
         continue;
       }
 

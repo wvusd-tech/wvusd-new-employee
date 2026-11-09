@@ -87,14 +87,12 @@ const DEFAULT_SEED_DATA = {
     }
   ],
   services: [
-    { serviceName: "Google Workspace", specialistEmails: ["tech@wvusd.org", "google-admin@wvusd.org"] },
-    { serviceName: "Aeries SIS Access", specialistEmails: ["aeries-support@wvusd.org", "sis@wvusd.org"] },
+    { serviceName: "Outlook Email", specialistEmails: ["tech@wvusd.org"] },
+    { serviceName: "Aeries", specialistEmails: ["aeries-support@wvusd.org", "sis@wvusd.org"] },
+    { serviceName: "Google Account", specialistEmails: ["tech@wvusd.org", "google-admin@wvusd.org"] },
+    { serviceName: "Clever", specialistEmails: ["clever-admin@wvusd.org", "tech@wvusd.org"] },
     { serviceName: "Door Badge & Physical Access", specialistEmails: ["facilities@wvusd.org", "security@wvusd.org"] },
-    { serviceName: "Active Directory & Network Login", specialistEmails: ["tech@wvusd.org", "sysadmin@wvusd.org"] },
-    { serviceName: "Voicemail & District Extension", specialistEmails: ["telecom@wvusd.org"] },
-    { serviceName: "Keypad & Room Entry Code", specialistEmails: ["facilities@wvusd.org"] },
-    { serviceName: "Special Ed (SEIS) Portal", specialistEmails: ["seis-admin@wvusd.org"] },
-    { serviceName: "Frontline Absence Management", specialistEmails: ["hr@wvusd.org"] }
+    { serviceName: "Active Directory & Network Login", specialistEmails: ["tech@wvusd.org", "sysadmin@wvusd.org"] }
   ],
   sites: [
     { siteName: "Diamond Bar High", principalEmails: ["principal.dbhs@wvusd.org"], officeEmails: ["oa.dbhs@wvusd.org", "kwendland@wvusd.org"] },
@@ -223,6 +221,13 @@ async function callBackend(action, payload = {}, userEmail = "") {
 
       const json = await response.json();
       if (json && !json.error) {
+        if (Array.isArray(json.services)) {
+          const forbidden = ['topic', 'topics', 'service', 'services', 'system', 'systems', 'topic name', 'service name', 'all topics'];
+          json.services = json.services.filter(s => {
+            const name = (typeof s === 'string' ? s : s?.serviceName || '').trim().toLowerCase();
+            return !forbidden.includes(name) && !name.startsWith('---') && !name.startsWith('(');
+          });
+        }
         return json;
       }
       console.warn("Backend error returned:", json?.error);
