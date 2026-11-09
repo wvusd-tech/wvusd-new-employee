@@ -112,7 +112,7 @@ export default function SiteSubmissionView() {
 
     setIsSubmitting(true);
     try {
-      const resolvedEmployeeType = requestType === 'Long-Term Sub' ? 'Substitute' : employeeType;
+      const resolvedEmployeeType = employeeType; // 'Classified' or 'Certificated'
       const payload = {
         requestType,
         employeeType: resolvedEmployeeType,
@@ -129,7 +129,7 @@ export default function SiteSubmissionView() {
 
       if (result.success) {
         const demoNote = isDemoMode ? " (Demo Mode Active: Live email suppressed)" : "";
-        setSubmitSuccess(`Request for ${firstName} ${lastName} (${resolvedEmployeeType}) submitted successfully (Status: Pending HR). An alert has been dispatched to HR.${demoNote}`);
+        setSubmitSuccess(`Request for ${firstName} ${lastName} (${requestType} - ${resolvedEmployeeType}) submitted successfully (Status: Pending HR). An alert has been dispatched to HR.${demoNote}`);
         // Reset form fields
         setFirstName('');
         setLastName('');
@@ -241,50 +241,74 @@ export default function SiteSubmissionView() {
               </div>
             </div>
 
-            {/* Employee Classification Toggle (Classified vs Certificated) */}
-            {requestType === 'New Employee' ? (
-              <div className="animate-fade-in">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>
-                    Employee Type <span className="text-rose-500">*</span>
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-normal">
-                    {employeeType === 'Classified' ? 'Routes to Classified HR (Cell E1)' : 'Routes to Certificated HR (Cell F1)'}
-                  </span>
-                </label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setEmployeeType('Classified')}
-                    className={`py-2 text-xs font-bold rounded-xl transition ${
+            {/* Employee Classification (Circle Radio Choice for Classified or Certificated) */}
+            <div className="space-y-2 animate-fade-in">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Employee Classification <span className="text-rose-500">*</span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-3 p-2 bg-slate-50 rounded-2xl border border-slate-200">
+                {/* Classified Circle Option */}
+                <button
+                  type="button"
+                  onClick={() => setEmployeeType('Classified')}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl transition text-xs font-bold text-left cursor-pointer border ${
+                    employeeType === 'Classified'
+                      ? 'bg-white border-emerald-400 text-emerald-900 shadow-xs ring-1 ring-emerald-400/30'
+                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition flex-shrink-0 ${
                       employeeType === 'Classified'
-                        ? 'bg-white text-emerald-800 shadow-sm border border-emerald-300'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'border-emerald-600 bg-white'
+                        : 'border-slate-300 bg-white'
                     }`}
                   >
-                    Classified
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEmployeeType('Certificated')}
-                    className={`py-2 text-xs font-bold rounded-xl transition ${
+                    {employeeType === 'Classified' && (
+                      <div className="w-2 h-2 rounded-full bg-emerald-600" />
+                    )}
+                  </div>
+                  <span>Classified</span>
+                </button>
+
+                {/* Certificated Circle Option */}
+                <button
+                  type="button"
+                  onClick={() => setEmployeeType('Certificated')}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl transition text-xs font-bold text-left cursor-pointer border ${
+                    employeeType === 'Certificated'
+                      ? 'bg-white border-indigo-400 text-indigo-900 shadow-xs ring-1 ring-indigo-400/30'
+                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition flex-shrink-0 ${
                       employeeType === 'Certificated'
-                        ? 'bg-white text-indigo-800 shadow-sm border border-indigo-300'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'border-indigo-600 bg-white'
+                        : 'border-slate-300 bg-white'
                     }`}
                   >
-                    Certificated
-                  </button>
-                </div>
+                    {employeeType === 'Certificated' && (
+                      <div className="w-2 h-2 rounded-full bg-indigo-600" />
+                    )}
+                  </div>
+                  <span>Certificated</span>
+                </button>
               </div>
-            ) : (
-              <div className="p-2.5 bg-purple-50 rounded-2xl border border-purple-200 text-xs text-purple-900 flex items-center justify-between animate-fade-in">
-                <span className="font-bold">Classification: Long-Term Substitute</span>
-                <span className="text-[10px] text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-full font-semibold">
-                  Routes to Sub HR (Cell C1)
+
+              {/* Dynamic Routing Notification Target */}
+              <div className="flex items-center justify-between px-1 text-[11px] text-slate-500">
+                <span className="font-medium">Intake Destination:</span>
+                <span className="font-bold text-slate-700">
+                  {requestType === 'Long-Term Sub'
+                    ? 'Sub HR Coordinator (Specialist!C1)'
+                    : employeeType === 'Classified'
+                    ? 'Classified HR Coordinator (Specialist!E1)'
+                    : 'Certificated HR Coordinator (Specialist!F1)'}
                 </span>
               </div>
-            )}
+            </div>
 
             {/* Site Dropdown */}
             <div>
@@ -536,7 +560,7 @@ export default function SiteSubmissionView() {
                         <td className="py-3 px-3">
                           <div className="flex flex-col gap-1 items-start">
                             <TypeBadge type={req.requestType} />
-                            {req.employeeType && req.employeeType !== 'Substitute' && (
+                            {req.employeeType && (
                               <EmployeeTypeBadge type={req.employeeType} />
                             )}
                           </div>

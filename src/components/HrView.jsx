@@ -23,7 +23,24 @@ import {
 export default function HrView() {
   const { user, portalData, refreshData, assignEmail, isDemoMode } = useAuth();
 
-  // Tab State: 'pending' (Pending HR queue) | 'active' (In Progress) | 'all' (All requests)
+  // HR Role Detection:
+  // Sub HR (Cell C1), Classified HR (Cell E1), Certificated HR (Cell F1)
+  const isSuperAdmin = Boolean(user?.isSuperAdmin);
+  const isHrSub = Boolean(user?.isHrSub);
+  const isHrClassified = Boolean(user?.isHrClassified);
+  const isHrCertificated = Boolean(user?.isHrCertificated);
+
+  const getInitialScope = () => {
+    if (isHrSub && !isHrClassified && !isHrCertificated) return 'sub';
+    if (isHrClassified && !isHrSub && !isHrCertificated) return 'classified';
+    if (isHrCertificated && !isHrSub && !isHrClassified) return 'certificated';
+    return 'all';
+  };
+
+  // Role Scope: 'all' | 'sub' | 'classified' | 'certificated'
+  const [roleScope, setRoleScope] = useState(getInitialScope);
+
+  // Tab State: 'pending' (Pending HR queue) | 'inProgress' (In Progress) | 'completed' (Completed) | 'all' (All requests)
   const [activeTab, setActiveTab] = useState('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [siteFilter, setSiteFilter] = useState('ALL');
@@ -38,13 +55,25 @@ export default function HrView() {
   // Details Modal State
   const [detailsModalRequest, setDetailsModalRequest] = useState(null);
 
-  // Compute counts
-  const pendingRequests = portalData.requests.filter(r => r.status === 'Pending HR');
-  const inProgressRequests = portalData.requests.filter(r => r.status === 'In Progress');
-  const completedRequests = portalData.requests.filter(r => r.status === 'Completed');
+  // Helper to filter requests by HR role scope
+  const matchesRoleScope = (req, scope) => {
+    const isSub = req.requestType === 'Long-Term Sub' || String(req.employeeType).toLowerCase() === 'substitute';
+    if (scope === 'sub') return isSub;
+    if (scope === 'classified') return !isSub && String(req.employeeType).toLowerCase().includes('class');
+    if (scope === 'certificated') return !isSub && String(req.employeeType).toLowerCase().includes('cert');
+    return true; // 'all'
+  };
 
-  // Filter requests based on active tab & filters
-  const displayedRequests = portalData.requests.filter(req => {
+  // Base list scoped to the selected HR domain
+  const roleScopedRequests = portalData.requests.filter(req => matchesRoleScope(req, roleScope));
+
+  // Compute counts scoped to current HR domain
+  const pendingRequests = roleScopedRequests.filter(r => r.status === 'Pending HR');
+  const inProgressRequests = roleScopedRequests.filter(r => r.status === 'In Progress');
+  const completedRequests = roleScopedRequests.filter(r => r.status === 'Completed');
+
+  // Filter requests based on active tab, search, & site filter
+  const displayedRequests = roleScopedRequests.filter(req => {
     // Tab filter
     if (activeTab === 'pending' && req.status !== 'Pending HR') return false;
     if (activeTab === 'inProgress' && req.status !== 'In Progress') return false;
@@ -53,14 +82,13 @@ export default function HrView() {
     // Site filter
     if (siteFilter !== 'ALL' && req.site !== siteFilter) return false;
 
-    // Search query
+    // Search query: filter by employee name, site, email only (no ID entered)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchName = req.fullName?.toLowerCase().includes(q);
-      const matchId = req.id?.toLowerCase().includes(q);
-      const matchEmail = req.workEmail?.toLowerCase().includes(q);
+      const matchEmail = req.workEmail?.toLowerCase().includes(q) || req.submitterEmail?.toLowerCase().includes(q) || req.originalTeacherEmail?.toLowerCase().includes(q);
       const matchSite = req.site?.toLowerCase().includes(q);
-      if (!matchName && !matchId && !matchEmail && !matchSite) return false;
+      if (!matchName && !matchEmail && !matchSite) return false;
     }
 
     return true;
@@ -136,7 +164,13 @@ export default function HrView() {
               Human Resources Specialist Desk
             </span>
             <span className="text-amber-300 font-mono text-xs hidden sm:inline">
-              Cell C1 Coordinator
+              {roleScope === 'sub'
+                ? 'Cell C1 Coordinator (Long-Term Subs)'
+                : roleScope === 'classified'
+                ? 'Cell E1 Coordinator (Classified)'
+                : roleScope === 'certificated'
+                ? 'Cell F1 Coordinator (Certificated)'
+                : 'All HR Classifications'}
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black mt-2">
@@ -146,6 +180,66 @@ export default function HrView() {
             Review incoming site intake requests, allocate official @wvusd.org Google Workspace credentials, and automatically trigger notification dispatches to responsible system specialists.
           </p>
         </div>
+      </div>
+
+      {/* HR Role Domain Filter Bar */}
+      <div className="flex flex-wrap items-center gap-2 p-2 bg-slate-100 rounded-2xl border border-slate-200">
+        <span className="text-xs font-bold text-slate-500 px-2 uppercase tracking-wider">
+          HR Role Scope:
+        </span>
+        <button
+          type="button"
+          onClick={() => setRoleScope('all')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            roleScope === 'all'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          All Requests ({portalData.requests.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setRoleScope('sub')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            roleScope === 'sub'
+              ? 'bg-purple-700 text-white shadow-sm'
+              : 'text-purple-700 hover:bg-purple-50'
+          }`}
+          title="All Sub requests (Classified or Certificated) routed to Cell C1"
+        >
+          Subs (Cell C1) ({
+            portalData.requests.filter(r => r.requestType === 'Long-Term Sub' || String(r.employeeType).toLowerCase() === 'substitute').length
+          })
+        </button>
+        <button
+          type="button"
+          onClick={() => setRoleScope('classified')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            roleScope === 'classified'
+              ? 'bg-emerald-700 text-white shadow-sm'
+              : 'text-emerald-700 hover:bg-emerald-50'
+          }`}
+          title="All Classified New Employees routed to Cell E1"
+        >
+          Classified (Cell E1) ({
+            portalData.requests.filter(r => r.requestType !== 'Long-Term Sub' && String(r.employeeType).toLowerCase().includes('class')).length
+          })
+        </button>
+        <button
+          type="button"
+          onClick={() => setRoleScope('certificated')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            roleScope === 'certificated'
+              ? 'bg-indigo-700 text-white shadow-sm'
+              : 'text-indigo-700 hover:bg-indigo-50'
+          }`}
+          title="All Certificated New Employees routed to Cell F1"
+        >
+          Certificated (Cell F1) ({
+            portalData.requests.filter(r => r.requestType !== 'Long-Term Sub' && String(r.employeeType).toLowerCase().includes('cert')).length
+          })
+        </button>
       </div>
 
       {/* KPI Metric Cards */}
@@ -269,7 +363,7 @@ export default function HrView() {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              All Records ({portalData.requests.length})
+              All Records ({roleScopedRequests.length})
             </button>
           </div>
 
@@ -279,11 +373,20 @@ export default function HrView() {
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               <input
                 type="text"
-                placeholder="Search candidate, email, ID..."
+                placeholder="Search by name, site, or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 w-44 sm:w-56"
+                className="pl-8 pr-7 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 w-48 sm:w-64"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             <select
@@ -334,7 +437,7 @@ export default function HrView() {
                               {req.id}
                             </span>
                             <TypeBadge type={req.requestType} />
-                            {req.employeeType && req.employeeType !== 'Substitute' && (
+                            {req.employeeType && (
                               <EmployeeTypeBadge type={req.employeeType} />
                             )}
                           </div>

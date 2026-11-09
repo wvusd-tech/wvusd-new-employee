@@ -157,6 +157,10 @@ function findSheet(ss, possibleNames) {
 
 /**
  * Helper: Routes request to the correct HR specialists based on Sub (C1), Classified (E1), Certificated (F1)
+ * Rule:
+ * 1. All sub requests (classified or certificated) -> Specialist!C1 (Sub HR)
+ * 2. All classified new employees -> Specialist!E1 (Classified HR)
+ * 3. All certificated new employees -> Specialist!F1 (Certificated HR)
  */
 function getHrEmailsForRequest(specSheet, requestType, employeeType) {
   if (!specSheet) return [];
@@ -169,17 +173,17 @@ function getHrEmailsForRequest(specSheet, requestType, employeeType) {
   const reqType = String(requestType || "").toLowerCase().trim();
   const empType = String(employeeType || "").toLowerCase().trim();
 
-  // Long-Term Sub always flows to C1
-  if (reqType.includes("sub") || empType.includes("sub")) {
+  // All sub requests (classified or certificated) go to Specialist!C1
+  if (reqType.includes("sub") || empType === "substitute") {
     return subEmails.length > 0 ? subEmails : allHr;
   }
-  // Certificated flows to F1
-  if (empType.includes("cert")) {
-    return certificatedEmails.length > 0 ? certificatedEmails : allHr;
-  }
-  // Classified flows to E1
+  // All classified new employees go to Specialist!E1
   if (empType.includes("class")) {
     return classifiedEmails.length > 0 ? classifiedEmails : allHr;
+  }
+  // All certificated new employees go to Specialist!F1
+  if (empType.includes("cert")) {
+    return certificatedEmails.length > 0 ? certificatedEmails : allHr;
   }
 
   return allHr;
@@ -320,7 +324,10 @@ function getInitialData(userEmail) {
 
   // 3. Determine User Roles
   const isSuperAdmin = cleanUserEmail && superAdminEmails.includes(cleanUserEmail);
-  const isHr = cleanUserEmail && allHrEmails.includes(cleanUserEmail);
+  const isHrSub = cleanUserEmail && hrSubEmails.includes(cleanUserEmail);
+  const isHrClassified = cleanUserEmail && hrClassifiedEmails.includes(cleanUserEmail);
+  const isHrCertificated = cleanUserEmail && hrCertificatedEmails.includes(cleanUserEmail);
+  const isHr = cleanUserEmail && (allHrEmails.includes(cleanUserEmail) || isHrSub || isHrClassified || isHrCertificated);
   const isSiteStaff = cleanUserEmail && userAuthorizedSites.length > 0;
 
   // Check Specialist role: user is listed in Col B of any service topic
@@ -387,6 +394,9 @@ function getInitialData(userEmail) {
       email: cleanUserEmail,
       isSuperAdmin: Boolean(isSuperAdmin),
       isHr: Boolean(isHr),
+      isHrSub: Boolean(isHrSub),
+      isHrClassified: Boolean(isHrClassified),
+      isHrCertificated: Boolean(isHrCertificated),
       isSpecialist: Boolean(isSpecialist),
       isSiteStaff: Boolean(isSiteStaff),
       authorizedSites: userAuthorizedSites,
@@ -408,7 +418,7 @@ function submitRequest(payload) {
   const reqSheet = findSheet(ss, ["Requests", "Request"]);
 
   const cleanType = String(payload.requestType || "New Employee").trim();
-  const employeeType = String(payload.employeeType || (cleanType === "Long-Term Sub" ? "Substitute" : "Classified")).trim();
+  const employeeType = String(payload.employeeType || "Classified").trim();
   const site = String(payload.site || "").trim();
   const firstName = String(payload.firstName || "").trim();
   const lastName = String(payload.lastName || "").trim();

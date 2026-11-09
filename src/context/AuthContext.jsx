@@ -28,7 +28,7 @@ const DEMO_SEED_REQUESTS = [
     workEmail: "",
     originalTeacherName: "",
     originalTeacherEmail: "",
-    accessRequested: ["Outlook Email", "Aeries", "Google Account", "Clever"],
+    accessRequested: ["Outlook Email", "Google Classroom", "Aeries", "Clever"],
     accessCompleted: [],
     status: "Pending HR",
     submitterEmail: "oa.dbhs@wvusd.org",
@@ -40,7 +40,7 @@ const DEMO_SEED_REQUESTS = [
     id: "REQ-1002",
     createdAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
     requestType: "Long-Term Sub",
-    employeeType: "Substitute",
+    employeeType: "Certificated",
     site: "Walnut High",
     firstName: "Elena",
     lastName: "Rostova",
@@ -48,12 +48,12 @@ const DEMO_SEED_REQUESTS = [
     workEmail: "sub.erostova@wvusd.org",
     originalTeacherName: "Katherine Miller",
     originalTeacherEmail: "kmiller@wvusd.org",
-    accessRequested: ["Google Account", "Aeries", "Clever"],
-    accessCompleted: ["Google Account"],
+    accessRequested: ["Outlook Email", "Google Classroom", "Clever"],
+    accessCompleted: ["Outlook Email"],
     status: "In Progress",
     submitterEmail: "oa.whs@wvusd.org",
     hrAssignedAt: new Date(Date.now() - 3600 * 1000 * 12).toISOString(),
-    comments: "[HR Specialist]: Sub email created and dispatched to specialists.",
+    comments: "[Sub HR]: Sub email created and dispatched to specialists.",
     finalNotifiedAt: ""
   },
   {
@@ -68,13 +68,33 @@ const DEMO_SEED_REQUESTS = [
     workEmail: "boconnor@wvusd.org",
     originalTeacherName: "",
     originalTeacherEmail: "",
-    accessRequested: ["Outlook Email", "Clever", "Aeries"],
-    accessCompleted: ["Outlook Email", "Clever", "Aeries"],
+    accessRequested: ["Outlook Email", "Clever", "Aeries", "Illuminate"],
+    accessCompleted: ["Outlook Email", "Clever", "Aeries", "Illuminate"],
     status: "Completed",
     submitterEmail: "oa.chms@wvusd.org",
     hrAssignedAt: new Date(Date.now() - 3600 * 1000 * 40).toISOString(),
     comments: "[Specialist]: All accounts active and verified.",
     finalNotifiedAt: new Date(Date.now() - 3600 * 1000 * 10).toISOString()
+  },
+  {
+    id: "REQ-1004",
+    createdAt: new Date(Date.now() - 3600 * 1000 * 10).toISOString(),
+    requestType: "Long-Term Sub",
+    employeeType: "Classified",
+    site: "South Pointe Middle",
+    firstName: "Jordan",
+    lastName: "Taylor",
+    fullName: "Jordan Taylor",
+    workEmail: "sub.jtaylor@wvusd.org",
+    originalTeacherName: "Mark Evans",
+    originalTeacherEmail: "mevans@wvusd.org",
+    accessRequested: ["Clever", "Aeries", "Illuminate"],
+    accessCompleted: [],
+    status: "In Progress",
+    submitterEmail: "oa.spms@wvusd.org",
+    hrAssignedAt: new Date(Date.now() - 3600 * 1000 * 5).toISOString(),
+    comments: "[Sub HR]: Long-term classified sub request dispatched to Tech specialists.",
+    finalNotifiedAt: ""
   }
 ];
 
@@ -231,13 +251,35 @@ export function AuthProvider({ children }) {
       const roles = data.currentUser || computeUserRoles(persona.email, data);
 
       // Force role flags based on persona type so tester can freely experience that view
-      if (persona.id === 'hr_specialist') roles.isHr = true;
-      if (persona.id === 'service_specialist') {
+      if (persona.id === 'hr_sub') {
+        roles.isHr = true;
+        roles.isHrSub = true;
+      } else if (persona.id === 'hr_classified') {
+        roles.isHr = true;
+        roles.isHrClassified = true;
+      } else if (persona.id === 'hr_certificated') {
+        roles.isHr = true;
+        roles.isHrCertificated = true;
+      } else if (persona.id === 'hr_specialist') {
+        roles.isHr = true;
+      }
+
+      if (persona.id === 'tech_specialist_a') {
+        roles.isSpecialist = true;
+        roles.assignedServices = ["Outlook Email", "Google Classroom"];
+      } else if (persona.id === 'tech_specialist_b') {
+        roles.isSpecialist = true;
+        roles.assignedServices = ["Clever"];
+      } else if (persona.id === 'tech_specialist_c') {
+        roles.isSpecialist = true;
+        roles.assignedServices = ["Aeries", "Illuminate"];
+      } else if (persona.id === 'service_specialist') {
         roles.isSpecialist = true;
         if (!roles.assignedServices || roles.assignedServices.length === 0) {
           roles.assignedServices = cleanServices.map(s => s.serviceName || s);
         }
       }
+
       if (persona.id === 'super_admin') roles.isSuperAdmin = true;
       if (persona.id === 'site_admin' || persona.id === 'site_oa') {
         roles.isSiteStaff = true;
@@ -257,9 +299,9 @@ export function AuthProvider({ children }) {
       sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
 
       // Explicitly transition active tab to the persona's designated view!
-      if (persona.id === 'hr_specialist') {
+      if (persona.id.startsWith('hr_')) {
         setActiveTab('hr');
-      } else if (persona.id === 'service_specialist') {
+      } else if (persona.id.startsWith('tech_specialist') || persona.id === 'service_specialist') {
         setActiveTab('specialist');
       } else if (persona.id === 'super_admin') {
         setActiveTab('admin');

@@ -60,7 +60,7 @@ export default function RequestDetailsModal({ request, onClose, onUpdate, curren
                   {request.id}
                 </span>
                 <TypeBadge type={request.requestType} />
-                {request.employeeType && request.employeeType !== 'Substitute' && (
+                {request.employeeType && (
                   <EmployeeTypeBadge type={request.employeeType} />
                 )}
                 <StatusBadge status={request.status} size="sm" />

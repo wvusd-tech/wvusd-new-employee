@@ -86,20 +86,52 @@ export const DEV_PERSONAS = [
     description: "Submit & track requests for Diamond Bar High"
   },
   {
-    id: "hr_specialist",
-    name: "Sarah Chen (HR Specialist)",
-    email: "hr@wvusd.org",
-    roleName: "HR Specialist (Cell C1)",
+    id: "hr_sub",
+    name: "Sarah Chen (Sub HR Coordinator)",
+    email: "hr-sub@wvusd.org",
+    roleName: "Sub HR Coordinator (Cell C1)",
     site: "District Office",
-    description: "Pending HR queue, assign work emails, dispatch"
+    description: "Long-Term Sub onboarding queue"
   },
   {
-    id: "service_specialist",
-    name: "David Kim (IT Systems Specialist)",
-    email: "tech@wvusd.org",
-    roleName: "Service Specialist (Col B rows 3+)",
+    id: "hr_classified",
+    name: "Rachel Miller (Classified HR)",
+    email: "hr-classified@wvusd.org",
+    roleName: "Classified HR Coordinator (Cell E1)",
+    site: "District Office",
+    description: "Classified employee onboarding queue"
+  },
+  {
+    id: "hr_certificated",
+    name: "David Kim (Certificated HR)",
+    email: "hr-certificated@wvusd.org",
+    roleName: "Certificated HR Coordinator (Cell F1)",
+    site: "District Office",
+    description: "Certificated employee onboarding queue"
+  },
+  {
+    id: "tech_specialist_a",
+    name: "Alex Martinez (Email & Classroom Specialist)",
+    email: "tech-a@wvusd.org",
+    roleName: "Specialist A (Email, Google Classroom)",
     site: "District Technology",
-    description: "Provision Google Workspace & Active Directory"
+    description: "Oversees Email and Google Classroom from Col A"
+  },
+  {
+    id: "tech_specialist_b",
+    name: "Brian Lee (Clever Specialist)",
+    email: "tech-b@wvusd.org",
+    roleName: "Specialist B (Clever)",
+    site: "District Technology",
+    description: "Oversees Clever from Col A"
+  },
+  {
+    id: "tech_specialist_c",
+    name: "Chloe Davis (Aeries & Illuminate Specialist)",
+    email: "tech-c@wvusd.org",
+    roleName: "Specialist C (Aeries, Illuminate)",
+    site: "District Technology",
+    description: "Oversees Aeries and Illuminate from Col A"
   },
   {
     id: "super_admin",

@@ -17,7 +17,9 @@ import {
   AlertCircle,
   Eye,
   CheckSquare,
-  Square
+  Square,
+  Search,
+  X
 } from 'lucide-react';
 
 export default function SpecialistView() {
@@ -31,8 +33,9 @@ export default function SpecialistView() {
     impersonatedTopic
   } = useAuth();
 
-  // Tab filter: 'actionable' (needs checkoff) vs 'all' (all assigned)
-  const [activeFilter, setActiveFilter] = useState('actionable');
+  // Tab filter: 'active' (default: needs my action, disappears once finished) | 'completed' (my portion done) | 'all'
+  const [activeFilter, setActiveFilter] = useState('active');
+  const [searchQuery, setSearchQuery] = useState('');
   const [commentingRequestId, setCommentingRequestId] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -47,16 +50,40 @@ export default function SpecialistView() {
     ? (impersonatedTopic && impersonatedTopic !== 'ALL' ? [impersonatedTopic] : portalData.services.map(s => s.serviceName))
     : user?.assignedServices || [];
 
-  // Filter requests that require at least one service this specialist is responsible for
-  const specialistRequests = portalData.requests.filter(req => {
-    // Only requests that have work email assigned or in progress/completed
-    const relevantServices = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
-    if (relevantServices.length === 0) return false;
+  // Filter requests that require at least one service this specialist is responsible for in Col A
+  const relevantRequests = portalData.requests.filter(req => {
+    const myServicesForReq = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
+    return myServicesForReq.length > 0;
+  });
 
-    if (activeFilter === 'actionable') {
-      // Must have at least one assigned service that is NOT completed yet
-      const hasPendingService = relevantServices.some(s => !req.accessCompleted?.includes(s));
-      return hasPendingService && req.status !== 'Completed';
+  const activeCount = relevantRequests.filter(req => {
+    const myServicesForReq = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
+    return myServicesForReq.some(s => !req.accessCompleted?.includes(s));
+  }).length;
+
+  const completedCount = relevantRequests.filter(req => {
+    const myServicesForReq = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
+    return myServicesForReq.length > 0 && myServicesForReq.every(s => req.accessCompleted?.includes(s));
+  }).length;
+
+  const specialistRequests = relevantRequests.filter(req => {
+    const myServicesForReq = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
+    const isCompletedByMe = myServicesForReq.length > 0 && myServicesForReq.every(s => req.accessCompleted?.includes(s));
+
+    // Toggle filter: In 'active', item disappears as soon as this specialist finishes their portion!
+    if (activeFilter === 'active') {
+      if (isCompletedByMe) return false;
+    } else if (activeFilter === 'completed') {
+      if (!isCompletedByMe) return false;
+    }
+
+    // Search query: filter by employee name, site, email only (no ID entered)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchName = req.fullName?.toLowerCase().includes(q);
+      const matchSite = req.site?.toLowerCase().includes(q);
+      const matchEmail = req.workEmail?.toLowerCase().includes(q) || req.originalTeacherEmail?.toLowerCase().includes(q);
+      if (!matchName && !matchSite && !matchEmail) return false;
     }
 
     return true;
@@ -155,43 +182,77 @@ export default function SpecialistView() {
       {/* Filter Tabs & Content Card */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6">
         
-        {/* Sub-header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+        {/* Sub-header with Search & Toggle */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
             <h3 className="font-black text-slate-900 text-base">
               My Provisioning Queue
             </h3>
             <p className="text-xs text-slate-500">
-              Tasks requiring your assigned system authorizations
+              Overseeing only systems assigned to you in Col A • Items disappear once you complete your portion
             </p>
           </div>
 
-          <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 self-start sm:self-auto">
-            <button
-              onClick={() => setActiveFilter('actionable')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
-                activeFilter === 'actionable'
-                  ? 'bg-white text-emerald-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Needs My Action ({
-                portalData.requests.filter(r => {
-                  const rev = r.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
-                  return rev.some(s => !r.accessCompleted?.includes(s)) && r.status !== 'Completed';
-                }).length
-              })
-            </button>
-            <button
-              onClick={() => setActiveFilter('all')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
-                activeFilter === 'all'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              All Assigned Records ({specialistRequests.length})
-            </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Employee Search Bar */}
+            <div className="relative min-w-[260px] sm:w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, site, or email..."
+                className="w-full pl-9 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setActiveFilter('active')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  activeFilter === 'active'
+                    ? 'bg-white text-emerald-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Items that need your completion. Completing your portion removes them from this board."
+              >
+                Active Queue ({activeCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFilter('completed')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  activeFilter === 'completed'
+                    ? 'bg-white text-emerald-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Items where you have completed all your assigned services."
+              >
+                Completed History ({completedCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  activeFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All ({relevantRequests.length})
+              </button>
+            </div>
           </div>
         </div>
 
@@ -229,7 +290,7 @@ export default function SpecialistView() {
                               {req.id}
                             </span>
                             <TypeBadge type={req.requestType} />
-                            {req.employeeType && req.employeeType !== 'Substitute' && (
+                            {req.employeeType && (
                               <EmployeeTypeBadge type={req.employeeType} />
                             )}
                           </div>

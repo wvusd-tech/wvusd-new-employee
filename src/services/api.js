@@ -90,10 +90,11 @@ const DEFAULT_SEED_DATA = {
     }
   ],
   services: [
-    { serviceName: "Outlook Email", specialistEmails: ["tech@wvusd.org"] },
-    { serviceName: "Aeries", specialistEmails: ["aeries-support@wvusd.org", "sis@wvusd.org"] },
-    { serviceName: "Google Account", specialistEmails: ["tech@wvusd.org", "google-admin@wvusd.org"] },
-    { serviceName: "Clever", specialistEmails: ["clever-admin@wvusd.org", "tech@wvusd.org"] },
+    { serviceName: "Outlook Email", specialistEmails: ["tech-a@wvusd.org", "tech@wvusd.org"] },
+    { serviceName: "Google Classroom", specialistEmails: ["tech-a@wvusd.org", "tech@wvusd.org"] },
+    { serviceName: "Clever", specialistEmails: ["tech-b@wvusd.org", "tech@wvusd.org"] },
+    { serviceName: "Illuminate", specialistEmails: ["tech-c@wvusd.org", "tech@wvusd.org"] },
+    { serviceName: "Aeries", specialistEmails: ["tech-c@wvusd.org", "tech@wvusd.org", "sis@wvusd.org"] },
     { serviceName: "Door Badge & Physical Access", specialistEmails: ["facilities@wvusd.org", "security@wvusd.org"] },
     { serviceName: "Active Directory & Network Login", specialistEmails: ["tech@wvusd.org", "sysadmin@wvusd.org"] }
   ],
@@ -115,7 +116,10 @@ const DEFAULT_SEED_DATA = {
     { siteName: "Ron Hockwalt Academies", principalEmails: ["principal.rha@wvusd.org"], officeEmails: ["oa.rha@wvusd.org"] },
     { siteName: "District Office", principalEmails: ["do-admin@wvusd.org"], officeEmails: ["do-secretary@wvusd.org"] }
   ],
-  hrEmails: ["hr@wvusd.org", "kwendland@wvusd.org"],
+  hrSubEmails: ["hr-sub@wvusd.org", "hr@wvusd.org", "kwendland@wvusd.org"],
+  hrClassifiedEmails: ["hr-classified@wvusd.org", "hr@wvusd.org", "kwendland@wvusd.org"],
+  hrCertificatedEmails: ["hr-certificated@wvusd.org", "hr@wvusd.org", "kwendland@wvusd.org"],
+  hrEmails: ["hr-sub@wvusd.org", "hr-classified@wvusd.org", "hr-certificated@wvusd.org", "hr@wvusd.org", "kwendland@wvusd.org"],
   superAdminEmails: ["admin@wvusd.org", "kwendland@wvusd.org"]
 };
 
@@ -160,13 +164,16 @@ export function resetMockData() {
 /**
  * Helper to compute roles from datasets given an email
  */
-export function computeUserRoles(email, { hrEmails, superAdminEmails, services, sites }) {
+export function computeUserRoles(email, { hrEmails, hrSubEmails, hrClassifiedEmails, hrCertificatedEmails, superAdminEmails, services, sites }) {
   const cleanEmail = email ? String(email).toLowerCase().trim() : "";
   if (!cleanEmail) {
     return {
       email: "",
       isSuperAdmin: false,
       isHr: false,
+      isHrSub: false,
+      isHrClassified: false,
+      isHrCertificated: false,
       isSpecialist: false,
       isSiteStaff: false,
       authorizedSites: [],
@@ -174,19 +181,22 @@ export function computeUserRoles(email, { hrEmails, superAdminEmails, services, 
     };
   }
 
-  const isSuperAdmin = superAdminEmails.map(e => e.toLowerCase()).includes(cleanEmail);
-  const isHr = hrEmails.map(e => e.toLowerCase()).includes(cleanEmail);
+  const isSuperAdmin = (superAdminEmails || []).map(e => e.toLowerCase()).includes(cleanEmail);
+  const isHrSub = (hrSubEmails || []).map(e => e.toLowerCase()).includes(cleanEmail);
+  const isHrClassified = (hrClassifiedEmails || []).map(e => e.toLowerCase()).includes(cleanEmail);
+  const isHrCertificated = (hrCertificatedEmails || []).map(e => e.toLowerCase()).includes(cleanEmail);
+  const isHr = isHrSub || isHrClassified || isHrCertificated || (hrEmails || []).map(e => e.toLowerCase()).includes(cleanEmail);
 
   const assignedServices = [];
-  services.forEach(s => {
-    if (s.specialistEmails.map(e => e.toLowerCase()).includes(cleanEmail)) {
+  (services || []).forEach(s => {
+    if ((s.specialistEmails || []).map(e => e.toLowerCase()).includes(cleanEmail)) {
       assignedServices.push(s.serviceName);
     }
   });
   const isSpecialist = assignedServices.length > 0;
 
   const authorizedSites = [];
-  sites.forEach(site => {
+  (sites || []).forEach(site => {
     const all = [...(site.principalEmails || []), ...(site.officeEmails || [])].map(e => e.toLowerCase());
     if (all.includes(cleanEmail)) {
       authorizedSites.push(site.siteName);
@@ -198,6 +208,9 @@ export function computeUserRoles(email, { hrEmails, superAdminEmails, services, 
     email: cleanEmail,
     isSuperAdmin,
     isHr,
+    isHrSub,
+    isHrClassified,
+    isHrCertificated,
     isSpecialist,
     isSiteStaff,
     authorizedSites,
@@ -250,6 +263,9 @@ async function callBackend(action, payload = {}, userEmail = "") {
       services: db.services,
       sites: db.sites,
       hrEmails: db.hrEmails,
+      hrSubEmails: db.hrSubEmails || [],
+      hrClassifiedEmails: db.hrClassifiedEmails || [],
+      hrCertificatedEmails: db.hrCertificatedEmails || [],
       superAdminEmails: db.superAdminEmails,
       currentUser: roles
     };
@@ -266,7 +282,7 @@ async function callBackend(action, payload = {}, userEmail = "") {
       id: `REQ-${nextNum}`,
       createdAt: new Date().toISOString(),
       requestType: reqType,
-      employeeType: payload.employeeType || (reqType === "Long-Term Sub" ? "Substitute" : "Classified"),
+      employeeType: payload.employeeType || "Classified",
       site: payload.site,
       firstName: payload.firstName,
       lastName: payload.lastName,

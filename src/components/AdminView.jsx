@@ -323,7 +323,7 @@ export default function AdminView() {
                         </div>
                         <div className="mt-1 flex items-center gap-1 flex-wrap">
                           <TypeBadge type={req.requestType} />
-                          {req.employeeType && req.employeeType !== 'Substitute' && (
+                          {req.employeeType && (
                             <EmployeeTypeBadge type={req.employeeType} />
                           )}
                         </div>
