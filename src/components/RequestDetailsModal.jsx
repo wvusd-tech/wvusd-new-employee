@@ -1,7 +1,7 @@
 // src/components/RequestDetailsModal.jsx
 import React, { useState } from 'react';
 import { X, MessageSquare, Send, CheckCircle2, Clock, User, Building, Mail, Calendar, Shield } from 'lucide-react';
-import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
+import StatusBadge, { TypeBadge, EmployeeTypeBadge } from './StatusBadge.jsx';
 import { api } from '../services/api.js';
 import { getSiteLogo } from '../config.js';
 
@@ -55,11 +55,14 @@ export default function RequestDetailsModal({ request, onClose, onUpdate, curren
               />
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-mono text-xs font-bold text-blue-300 tracking-wider">
                   {request.id}
                 </span>
                 <TypeBadge type={request.requestType} />
+                {request.employeeType && request.employeeType !== 'Substitute' && (
+                  <EmployeeTypeBadge type={request.employeeType} />
+                )}
                 <StatusBadge status={request.status} size="sm" />
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white">

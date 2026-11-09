@@ -5,7 +5,7 @@
  * Google Apps Script Web App Backend (Code.gs)
  * ==============================================================================
  *
- * SHEET TAB STRUCTURE:
+ * SPREADSHEET STRUCTURE:
  *
  * 1. "Sites" Tab:
  *    - Col A: Site (School Name)
@@ -13,28 +13,31 @@
  *    - Col C: Admin Assistant Email (comma-separated if multiple)
  *
  * 2. "Specialist" (or "Specialists") Tab:
- *    - Cell C1: HR Specialists (comma-separated)
- *    - Cell D1: Super Admin (comma-separated)
  *    - Col A: Topic (System / Service name)
  *    - Col B: Specialist Email (comma-separated if multiple)
+ *    - Cell C1: Sub HR Specialists (comma-separated)
+ *    - Cell D1: Super Admin (comma-separated)
+ *    - Cell E1: Classified HR Specialists (comma-separated)
+ *    - Cell F1: Certificated HR Specialists (comma-separated)
  *
  * 3. "Requests" Tab:
  *    - Col A: Request ID (e.g. REQ-1001)
  *    - Col B: Created At (ISO timestamp)
  *    - Col C: Request Type ("New Employee" | "Long-Term Sub")
- *    - Col D: Site
- *    - Col E: First Name
- *    - Col F: Last Name
- *    - Col G: Work Email
- *    - Col H: Original Teacher Name
- *    - Col I: Original Teacher Email
- *    - Col J: Access Requested (comma-separated topics)
- *    - Col K: Access Completed (comma-separated topics)
- *    - Col L: Status ("Pending HR" | "In Progress" | "Completed" | "Cancelled")
- *    - Col M: Submitter Email
- *    - Col N: HR Assigned At
- *    - Col O: Comments
- *    - Col P: Final Notified At
+ *    - Col D: Employee Type ("Classified" | "Certificated" | "Substitute")
+ *    - Col E: Site
+ *    - Col F: First Name
+ *    - Col G: Last Name
+ *    - Col H: Work Email
+ *    - Col I: Original Teacher Name
+ *    - Col J: Original Teacher Email
+ *    - Col K: Access Requested (comma-separated topics)
+ *    - Col L: Access Completed (comma-separated topics)
+ *    - Col M: Status ("Pending HR" | "In Progress" | "Completed" | "Cancelled")
+ *    - Col N: Submitter Email
+ *    - Col O: HR Assigned At
+ *    - Col P: Comments
+ *    - Col Q: Final Notified At
  * ==============================================================================
  */
 
@@ -153,6 +156,36 @@ function findSheet(ss, possibleNames) {
 }
 
 /**
+ * Helper: Routes request to the correct HR specialists based on Sub (C1), Classified (E1), Certificated (F1)
+ */
+function getHrEmailsForRequest(specSheet, requestType, employeeType) {
+  if (!specSheet) return [];
+  const row0 = specSheet.getRange(1, 1, 1, 6).getValues()[0];
+  const subEmails = parseEmailList(row0[2] || "");          // C1: Sub HR
+  const classifiedEmails = parseEmailList(row0[4] || "");   // E1: Classified HR
+  const certificatedEmails = parseEmailList(row0[5] || ""); // F1: Certificated HR
+  const allHr = [...new Set([...subEmails, ...classifiedEmails, ...certificatedEmails])];
+
+  const reqType = String(requestType || "").toLowerCase().trim();
+  const empType = String(employeeType || "").toLowerCase().trim();
+
+  // Long-Term Sub always flows to C1
+  if (reqType.includes("sub") || empType.includes("sub")) {
+    return subEmails.length > 0 ? subEmails : allHr;
+  }
+  // Certificated flows to F1
+  if (empType.includes("cert")) {
+    return certificatedEmails.length > 0 ? certificatedEmails : allHr;
+  }
+  // Classified flows to E1
+  if (empType.includes("class")) {
+    return classifiedEmails.length > 0 ? classifiedEmails : allHr;
+  }
+
+  return allHr;
+}
+
+/**
  * Ensures the "Requests" tab exists with correct headers without touching existing data
  */
 function ensureRequestsTab() {
@@ -167,6 +200,7 @@ function ensureRequestsTab() {
       "Request ID",
       "Created At",
       "Request Type",
+      "Employee Type",
       "Site",
       "First Name",
       "Last Name",
@@ -196,8 +230,8 @@ function ensureRequestsTab() {
  * DATA RETRIEVAL (getInitialData)
  * Dynamically reads:
  * 1. "Sites" tab (Col A: Site, Col B: Principal Email, Col C: Admin Assistant Email)
- * 2. "Specialist" tab (C1: HR, D1: Super Admin, Col A: Topic, Col B: Specialist Email)
- * 3. "Requests" tab
+ * 2. "Specialist" tab (C1: Sub HR, D1: Super Admin, E1: Classified HR, F1: Certificated HR, Col A: Topic, Col B: Specialist Email)
+ * 3. "Requests" tab (17 columns: A through Q)
  * ------------------------------------------------------------------------------
  */
 function getInitialData(userEmail) {
@@ -208,29 +242,32 @@ function getInitialData(userEmail) {
 
   // 1. Read "Specialist" (or "Specialists") Tab
   const specSheet = findSheet(ss, ["Specialist", "Specialists"]);
-  let hrEmails = [];
+  let hrSubEmails = [];
+  let hrClassifiedEmails = [];
+  let hrCertificatedEmails = [];
   let superAdminEmails = [];
   const services = []; // { serviceName, specialistEmails }
 
   if (specSheet) {
     const specData = specSheet.getDataRange().getValues();
 
-    // Read Cell C1 (HR Specialists) & Cell D1 (Super Admin)
+    // Read Cell C1 (Sub HR), D1 (Super Admin), E1 (Classified HR), F1 (Certificated HR)
     if (specData.length > 0) {
       const row0 = specData[0];
-      if (row0.length > 2) hrEmails = parseEmailList(row0[2]);
-      if (row0.length > 3) superAdminEmails = parseEmailList(row0[3]);
+      if (row0.length > 2) hrSubEmails = parseEmailList(row0[2]);          // C1
+      if (row0.length > 3) superAdminEmails = parseEmailList(row0[3]);     // D1
+      if (row0.length > 4) hrClassifiedEmails = parseEmailList(row0[4]);   // E1
+      if (row0.length > 5) hrCertificatedEmails = parseEmailList(row0[5]); // F1
     }
 
     // Read Topics (Col A) and Specialist Emails (Col B)
-    // Identify where data starts (skips header rows if Col A is "Topic" or "Service")
     for (let r = 0; r < specData.length; r++) {
       const topicName = String(specData[r][0] || "").trim();
       if (!topicName) continue;
 
       const lower = topicName.toLowerCase();
-      // Skip header labels like "Topic", "Topics", "Service", "Services", or separator dashes
-      const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name"];
+      // Skip header labels
+      const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics"];
       if (forbiddenHeaders.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) {
         continue;
       }
@@ -245,6 +282,8 @@ function getInitialData(userEmail) {
     }
   }
 
+  const allHrEmails = [...new Set([...hrSubEmails, ...hrClassifiedEmails, ...hrCertificatedEmails])];
+
   // 2. Read "Sites" (or "Site") Tab
   // Col A: Site | Col B: Principal Email | Col C: Admin Assistant Email
   const siteSheet = findSheet(ss, ["Sites", "Site"]);
@@ -258,7 +297,6 @@ function getInitialData(userEmail) {
       if (!siteName) continue;
 
       const lower = siteName.toLowerCase();
-      // Skip header label row if present
       if (lower === "site" || lower === "site name" || lower === "school") {
         continue;
       }
@@ -282,17 +320,16 @@ function getInitialData(userEmail) {
 
   // 3. Determine User Roles
   const isSuperAdmin = cleanUserEmail && superAdminEmails.includes(cleanUserEmail);
-  const isHr = cleanUserEmail && hrEmails.includes(cleanUserEmail);
-  const isSiteStaff = userAuthorizedSites.length > 0;
+  const isHr = cleanUserEmail && allHrEmails.includes(cleanUserEmail);
+  const isSiteStaff = cleanUserEmail && userAuthorizedSites.length > 0;
 
+  // Check Specialist role: user is listed in Col B of any service topic
   const assignedServices = [];
-  if (cleanUserEmail) {
-    services.forEach(s => {
-      if (s.specialistEmails.includes(cleanUserEmail)) {
-        assignedServices.push(s.serviceName);
-      }
-    });
-  }
+  services.forEach(srv => {
+    if (cleanUserEmail && srv.specialistEmails.includes(cleanUserEmail)) {
+      assignedServices.push(srv.serviceName);
+    }
+  });
   const isSpecialist = assignedServices.length > 0;
 
   // 4. Read "Requests" Tab
@@ -301,13 +338,14 @@ function getInitialData(userEmail) {
 
   if (reqSheet && reqSheet.getLastRow() > 1) {
     const reqData = reqSheet.getDataRange().getValues();
+
     for (let r = 1; r < reqData.length; r++) {
       const row = reqData[r];
       const reqId = String(row[0] || "").trim();
       if (!reqId) continue;
 
-      const accessReqStr = String(row[9] || "");
-      const accessCompStr = String(row[10] || "");
+      const accessReqStr = String(row[10] || "");
+      const accessCompStr = String(row[11] || "");
 
       const requestedArr = accessReqStr.split(",").map(s => s.trim()).filter(Boolean);
       const completedArr = accessCompStr.split(",").map(s => s.trim()).filter(Boolean);
@@ -317,20 +355,21 @@ function getInitialData(userEmail) {
         id: reqId,
         createdAt: row[1] ? new Date(row[1]).toISOString() : "",
         requestType: String(row[2] || "New Employee").trim(),
-        site: String(row[3] || "").trim(),
-        firstName: String(row[4] || "").trim(),
-        lastName: String(row[5] || "").trim(),
-        fullName: `${String(row[4] || "").trim()} ${String(row[5] || "").trim()}`.trim(),
-        workEmail: String(row[6] || "").trim(),
-        originalTeacherName: String(row[7] || "").trim(),
-        originalTeacherEmail: String(row[8] || "").trim(),
+        employeeType: String(row[3] || "").trim(),
+        site: String(row[4] || "").trim(),
+        firstName: String(row[5] || "").trim(),
+        lastName: String(row[6] || "").trim(),
+        fullName: `${String(row[5] || "").trim()} ${String(row[6] || "").trim()}`.trim(),
+        workEmail: String(row[7] || "").trim(),
+        originalTeacherName: String(row[8] || "").trim(),
+        originalTeacherEmail: String(row[9] || "").trim(),
         accessRequested: requestedArr,
         accessCompleted: completedArr,
-        status: String(row[11] || "Pending HR").trim(),
-        submitterEmail: String(row[12] || "").trim(),
-        hrAssignedAt: row[13] ? new Date(row[13]).toISOString() : "",
-        comments: String(row[14] || "").trim(),
-        finalNotifiedAt: row[15] ? new Date(row[15]).toISOString() : ""
+        status: String(row[12] || "Pending HR").trim(),
+        submitterEmail: String(row[13] || "").trim(),
+        hrAssignedAt: row[14] ? new Date(row[14]).toISOString() : "",
+        comments: String(row[15] || "").trim(),
+        finalNotifiedAt: row[16] ? new Date(row[16]).toISOString() : ""
       });
     }
   }
@@ -339,7 +378,10 @@ function getInitialData(userEmail) {
     requests: requests,
     services: services,
     sites: sites,
-    hrEmails: hrEmails,
+    hrEmails: allHrEmails,
+    hrSubEmails: hrSubEmails,
+    hrClassifiedEmails: hrClassifiedEmails,
+    hrCertificatedEmails: hrCertificatedEmails,
     superAdminEmails: superAdminEmails,
     currentUser: {
       email: cleanUserEmail,
@@ -356,6 +398,8 @@ function getInitialData(userEmail) {
 /**
  * ------------------------------------------------------------------------------
  * INTAKE WORKFLOW: submitRequest
+ * Appends row to "Requests" tab with Status: "Pending HR"
+ * Dispatches intake alert email to Sub HR (C1), Classified HR (E1), or Certificated HR (F1)
  * ------------------------------------------------------------------------------
  */
 function submitRequest(payload) {
@@ -363,19 +407,32 @@ function submitRequest(payload) {
   ensureRequestsTab();
   const reqSheet = findSheet(ss, ["Requests", "Request"]);
 
-  const cleanType = payload.requestType === "Long-Term Sub" ? "Long-Term Sub" : "New Employee";
+  const cleanType = String(payload.requestType || "New Employee").trim();
+  const employeeType = String(payload.employeeType || (cleanType === "Long-Term Sub" ? "Substitute" : "Classified")).trim();
   const site = String(payload.site || "").trim();
   const firstName = String(payload.firstName || "").trim();
   const lastName = String(payload.lastName || "").trim();
-  const submitterEmail = String(payload.submitterEmail || "").toLowerCase().trim();
   const origName = cleanType === "Long-Term Sub" ? String(payload.originalTeacherName || "").trim() : "";
-  const origEmail = cleanType === "Long-Term Sub" ? String(payload.originalTeacherEmail || "").toLowerCase().trim() : "";
+  const origEmail = cleanType === "Long-Term Sub" ? String(payload.originalTeacherEmail || "").trim() : "";
+  const submitterEmail = String(payload.submitterEmail || "").toLowerCase().trim();
 
   let requestedServices = [];
   if (Array.isArray(payload.requestedServices)) {
-    requestedServices = payload.requestedServices.map(s => String(s).trim()).filter(Boolean);
-  } else if (typeof payload.requestedServices === "string") {
-    requestedServices = payload.requestedServices.split(",").map(s => s.trim()).filter(Boolean);
+    requestedServices = payload.requestedServices;
+  } else if (payload.requestedServices) {
+    requestedServices = String(payload.requestedServices).split(",").map(s => s.trim()).filter(Boolean);
+  }
+
+  // Filter out header labels from requested services
+  const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics"];
+  requestedServices = requestedServices.filter(s => !forbiddenHeaders.includes(s.toLowerCase()));
+
+  if (!site || !firstName || !lastName) {
+    return { success: false, error: "Site, First Name, and Last Name are required." };
+  }
+
+  if (cleanType === "Long-Term Sub" && !origName) {
+    return { success: false, error: "Original Teacher Name is required for Long-Term Subs." };
   }
 
   // Generate ID: REQ-XXXX
@@ -394,12 +451,13 @@ function submitRequest(payload) {
   const requestId = "REQ-" + nextNum;
   const createdAt = new Date();
 
-  // Row columns matching schema:
-  // [ID, CreatedAt, Type, Site, First, Last, WorkEmail, OrigName, OrigEmail, AccessReq, AccessComp, Status, Submitter, HRAssignedAt, Comments, FinalNotifiedAt]
+  // 17 columns schema: A through Q
+  // [ID, CreatedAt, Type, EmployeeType, Site, First, Last, WorkEmail, OrigName, OrigEmail, AccessReq, AccessComp, Status, Submitter, HRAssignedAt, Comments, FinalNotifiedAt]
   const rowData = [
     requestId,
     createdAt,
     cleanType,
+    employeeType,
     site,
     firstName,
     lastName,
@@ -411,24 +469,24 @@ function submitRequest(payload) {
     "Pending HR",
     submitterEmail,
     "", // HR Assigned At
-    "", // Comments
+    `[${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm")} Submitter]: Initial access request submitted.`, // Comments
     ""  // Final Notified At
   ];
 
   reqSheet.appendRow(rowData);
 
-  // Send HR Intake Alert Email to C1
+  // Send HR Intake Alert Email to appropriate specialist (Sub -> C1, Classified -> E1, Certificated -> F1)
   try {
     const specSheet = findSheet(ss, ["Specialist", "Specialists"]);
     if (specSheet) {
-      const hrEmailsRaw = specSheet.getRange("C1").getValue();
-      const hrRecipients = parseEmailList(hrEmailsRaw);
+      const hrRecipients = getHrEmailsForRequest(specSheet, cleanType, employeeType);
 
       if (hrRecipients.length > 0) {
         sendHrIntakeAlertEmail({
           hrRecipients: hrRecipients,
           requestId: requestId,
           requestType: cleanType,
+          employeeType: employeeType,
           candidateName: `${firstName} ${lastName}`.trim(),
           site: site,
           requestedServices: requestedServices,
@@ -452,7 +510,9 @@ function submitRequest(payload) {
 
 /**
  * ------------------------------------------------------------------------------
- * HR ASSIGNMENT WORKFLOW: assignEmail
+ * HR WORKFLOW: assignEmail
+ * Updates Work Email (Col H), Status -> "In Progress" (Col M), logs HR Assigned At (Col O)
+ * Dispatches automated notification emails to specialists assigned to requested services
  * ------------------------------------------------------------------------------
  */
 function assignEmail(payload) {
@@ -485,26 +545,30 @@ function assignEmail(payload) {
 
   const assignedAt = new Date();
 
-  // Col G (7) = Work Email | Col L (12) = Status | Col N (14) = HR Assigned At
-  reqSheet.getRange(rowIndex, 7).setValue(workEmail);
-  reqSheet.getRange(rowIndex, 12).setValue("In Progress");
-  reqSheet.getRange(rowIndex, 14).setValue(assignedAt);
+  // Col H (8): Work Email
+  // Col M (13): Status -> "In Progress"
+  // Col O (15): HR Assigned At
+  reqSheet.getRange(rowIndex, 8).setValue(workEmail);
+  reqSheet.getRange(rowIndex, 13).setValue("In Progress");
+  reqSheet.getRange(rowIndex, 15).setValue(assignedAt);
 
-  // Read requested topics to notify specialists
-  const requestedServicesStr = String(targetRow[9] || "");
-  const requestedServices = requestedServicesStr.split(",").map(s => s.trim()).filter(Boolean);
+  // Read requested services from Col K (index 10)
+  const requestedServicesStr = String(targetRow[10] || "");
+  const requestedServices = requestedServicesStr
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
 
-  // Map specialists from Col A & Col B of Specialist tab
-  const specialistServiceMap = {}; // specialistEmail -> [serviceNames]
-
+  // Group services by specialist email from Specialist tab
+  const specialistServiceMap = {};
   if (specSheet) {
     const specData = specSheet.getDataRange().getValues();
+    const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics"];
     for (let r = 0; r < specData.length; r++) {
       const topicName = String(specData[r][0] || "").trim();
       if (!topicName) continue;
 
       const lower = topicName.toLowerCase();
-      const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name"];
       if (forbiddenHeaders.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) {
         continue;
       }
@@ -525,13 +589,14 @@ function assignEmail(payload) {
       sendSpecialistDispatchEmail({
         specialistEmail: specEmail,
         requestId: requestId,
-        candidateName: `${targetRow[4]} ${targetRow[5]}`.trim(),
+        candidateName: `${targetRow[5]} ${targetRow[6]}`.trim(),
         workEmail: workEmail,
         requestType: targetRow[2],
-        site: targetRow[3],
+        employeeType: targetRow[3],
+        site: targetRow[4],
         assignedServices: specialistServiceMap[specEmail],
-        originalTeacherName: targetRow[7],
-        originalTeacherEmail: targetRow[8],
+        originalTeacherName: targetRow[8],
+        originalTeacherEmail: targetRow[9],
         isDemo: Boolean(payload.demoMode || payload.isDemo)
       });
     });
@@ -551,6 +616,11 @@ function assignEmail(payload) {
 /**
  * ------------------------------------------------------------------------------
  * SPECIALIST WORKFLOW: toggleAccess
+ * Marks/unmarks service in Access Completed (Col L).
+ * If all requested items are complete:
+ * - Status -> "Completed" (Col M)
+ * - Final Notified At recorded (Col Q)
+ * - Final completion email sent to HR (looked up by type) and CCs Site Leadership
  * ------------------------------------------------------------------------------
  */
 function toggleAccess(payload) {
@@ -583,8 +653,10 @@ function toggleAccess(payload) {
     return { success: false, error: "Request not found: " + requestId };
   }
 
-  const requestedArr = String(targetRow[9] || "").split(",").map(s => s.trim()).filter(Boolean);
-  let completedArr = String(targetRow[10] || "").split(",").map(s => s.trim()).filter(Boolean);
+  // Col K (index 10): Access Requested
+  // Col L (index 11): Access Completed
+  const requestedArr = String(targetRow[10] || "").split(",").map(s => s.trim()).filter(Boolean);
+  let completedArr = String(targetRow[11] || "").split(",").map(s => s.trim()).filter(Boolean);
 
   if (completed) {
     if (!completedArr.some(s => s.toLowerCase() === serviceName.toLowerCase())) {
@@ -595,70 +667,69 @@ function toggleAccess(payload) {
   }
 
   const newCompletedStr = completedArr.join(", ");
-  reqSheet.getRange(rowIndex, 11).setValue(newCompletedStr);
+  reqSheet.getRange(rowIndex, 12).setValue(newCompletedStr); // Col L (12)
 
-  // Check if ALL requested topics are now completed
-  const allCompleted = requestedArr.length > 0 && requestedArr.every(req =>
-    completedArr.map(c => c.toLowerCase()).includes(req.toLowerCase())
+  // Check if ALL requested services are completed
+  const allCompleted = requestedArr.length > 0 && requestedArr.every(reqService =>
+    completedArr.some(c => c.toLowerCase() === reqService.toLowerCase())
   );
 
-  let updatedStatus = targetRow[11];
-  let finalNotifiedAt = targetRow[15];
+  let updatedStatus = targetRow[12]; // Col M (13)
+  let finalNotifiedAt = targetRow[16]; // Col Q (17)
 
-  if (allCompleted) {
+  if (allCompleted && updatedStatus !== "Completed") {
     updatedStatus = "Completed";
     finalNotifiedAt = new Date();
-    reqSheet.getRange(rowIndex, 12).setValue(updatedStatus); // Col L
-    reqSheet.getRange(rowIndex, 16).setValue(finalNotifiedAt); // Col P
 
-    // Send final completion emails to HR (C1), CC: Site Principal & Admin Assistant
+    reqSheet.getRange(rowIndex, 13).setValue(updatedStatus); // Col M
+    reqSheet.getRange(rowIndex, 17).setValue(finalNotifiedAt); // Col Q
+
+    // Send final completion emails to appropriate HR and CC Site Leadership
     try {
       let hrEmails = [];
       if (specSheet) {
-        hrEmails = parseEmailList(specSheet.getRange("C1").getValue());
+        hrEmails = getHrEmailsForRequest(specSheet, targetRow[2], targetRow[3]);
       }
 
-      // Look up Site Principal (Col B) and Admin Assistant (Col C)
-      const siteName = String(targetRow[3] || "").trim();
-      let ccEmails = [];
-
-      if (siteSheet) {
-        const siteRows = siteSheet.getDataRange().getValues();
-        for (let s = 0; s < siteRows.length; s++) {
-          if (String(siteRows[s][0] || "").trim().toLowerCase() === siteName.toLowerCase()) {
-            const principals = parseEmailList(siteRows[s][1]);
-            const assistants = parseEmailList(siteRows[s][2]);
-            ccEmails = [...principals, ...assistants];
+      // Lookup site leadership from Sites tab
+      const siteName = String(targetRow[4] || "").trim();
+      let siteCcEmails = [];
+      if (siteSheet && siteName) {
+        const siteData = siteSheet.getDataRange().getValues();
+        for (let s = 1; s < siteData.length; s++) {
+          if (String(siteData[s][0]).toLowerCase().trim() === siteName.toLowerCase().trim()) {
+            const principalEmails = parseEmailList(siteData[s][1]);
+            const officeEmails = parseEmailList(siteData[s][2]);
+            siteCcEmails = [...new Set([...principalEmails, ...officeEmails])];
             break;
           }
         }
       }
 
-      // Add original submitter to CC
-      const submitter = String(targetRow[12] || "").toLowerCase().trim();
-      if (submitter && !ccEmails.includes(submitter)) {
-        ccEmails.push(submitter);
+      const submitter = String(targetRow[13] || "").toLowerCase().trim();
+      if (submitter && !siteCcEmails.includes(submitter)) {
+        siteCcEmails.push(submitter);
       }
 
       sendFinalResolutionEmail({
         hrEmails: hrEmails,
-        ccEmails: ccEmails,
+        ccEmails: siteCcEmails,
         requestId: requestId,
-        candidateName: `${targetRow[4]} ${targetRow[5]}`.trim(),
-        workEmail: targetRow[6],
+        candidateName: `${targetRow[5]} ${targetRow[6]}`.trim(),
+        workEmail: targetRow[7],
         requestType: targetRow[2],
-        site: siteName,
+        employeeType: targetRow[3],
+        site: targetRow[4],
         completedServices: completedArr,
-        originalTeacherName: targetRow[7],
+        originalTeacherName: targetRow[8],
         isDemo: Boolean(payload.demoMode || payload.isDemo)
       });
     } catch (emailErr) {
-      Logger.log("Error sending final resolution email: " + emailErr.toString());
+      Logger.log("Error sending final completion email: " + emailErr.toString());
     }
-  } else if (targetRow[11] === "Completed") {
-    // If an item was unchecked, return to In Progress
+  } else if (targetRow[12] === "Completed" && !allCompleted) {
     updatedStatus = "In Progress";
-    reqSheet.getRange(rowIndex, 12).setValue(updatedStatus);
+    reqSheet.getRange(rowIndex, 13).setValue(updatedStatus);
   }
 
   return {
@@ -675,6 +746,7 @@ function toggleAccess(payload) {
 /**
  * ------------------------------------------------------------------------------
  * COMMENTS / NOTES: addComment
+ * Logs comment to Col P (16) and emails appropriate HR specialist(s)
  * ------------------------------------------------------------------------------
  */
 function addComment(payload) {
@@ -706,26 +778,28 @@ function addComment(payload) {
     return { success: false, error: "Request not found: " + requestId };
   }
 
-  const existingComments = String(targetRow[14] || "").trim();
+  const existingComments = String(targetRow[15] || "").trim();
   const nowStamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
   const newCommentEntry = `[${nowStamp} ${userEmail || "staff"}]: ${commentText}`;
   const updatedComments = existingComments ? `${existingComments}\n${newCommentEntry}` : newCommentEntry;
 
-  reqSheet.getRange(rowIndex, 15).setValue(updatedComments);
+  reqSheet.getRange(rowIndex, 16).setValue(updatedComments); // Col P (16)
 
-  // Send Comment Alert Email to HR (C1)
+  // Send Comment Alert Email to appropriate HR specialist(s)
   try {
     if (specSheet) {
-      const hrEmails = parseEmailList(specSheet.getRange("C1").getValue());
+      const hrEmails = getHrEmailsForRequest(specSheet, targetRow[2], targetRow[3]);
       if (hrEmails.length > 0) {
         sendCommentAlertEmail({
           hrEmails: hrEmails,
           requestId: requestId,
-          candidateName: `${targetRow[4]} ${targetRow[5]}`.trim(),
-          site: targetRow[3],
+          candidateName: `${targetRow[5]} ${targetRow[6]}`.trim(),
+          requestType: targetRow[2],
+          employeeType: targetRow[3],
+          site: targetRow[4],
           authorEmail: userEmail,
           commentText: commentText,
-          workEmail: targetRow[6],
+          workEmail: targetRow[7],
           isDemo: Boolean(payload.demoMode || payload.isDemo)
         });
       }
@@ -744,6 +818,7 @@ function addComment(payload) {
 /**
  * ------------------------------------------------------------------------------
  * SUPER ADMIN OVERRIDES: adminOverride
+ * Full privilege updates validated against Cell D1
  * ------------------------------------------------------------------------------
  */
 function adminOverride(payload) {
@@ -777,25 +852,27 @@ function adminOverride(payload) {
     return { success: false, error: "Request not found: " + requestId };
   }
 
-  if (payload.status) reqSheet.getRange(rowIndex, 12).setValue(payload.status);
-  if (payload.workEmail !== undefined) reqSheet.getRange(rowIndex, 7).setValue(payload.workEmail);
+  // Col D (4): Employee Type
+  if (payload.employeeType !== undefined) reqSheet.getRange(rowIndex, 4).setValue(payload.employeeType);
+  // Col H (8): Work Email
+  if (payload.workEmail !== undefined) reqSheet.getRange(rowIndex, 8).setValue(payload.workEmail);
+  // Col L (12): Access Completed
   if (payload.accessCompleted !== undefined) {
     const compStr = Array.isArray(payload.accessCompleted) ? payload.accessCompleted.join(", ") : String(payload.accessCompleted);
-    reqSheet.getRange(rowIndex, 11).setValue(compStr);
+    reqSheet.getRange(rowIndex, 12).setValue(compStr);
   }
+  // Col M (13): Status
+  if (payload.status) reqSheet.getRange(rowIndex, 13).setValue(payload.status);
 
   return { success: true, message: "Admin override applied successfully." };
 }
 
 /**
  * ==============================================================================
- * HTML EMAIL TEMPLATES
+ * HTML EMAIL DISPATCH VIA GMAILAPP
  * ==============================================================================
  */
 
-/**
- * Safe helper to send emails using GmailApp with HTML support, fallback, and sender name
- */
 function sendEmailWithGmailApp_(to, subject, htmlBody, cc, isDemo) {
   if (isDemo) {
     Logger.log("[DEMO MODE ACTIVE] Live email dispatch suppressed. Target: " + (Array.isArray(to) ? to.join(",") : to) + " | Subject: " + subject);
@@ -826,75 +903,81 @@ function sendEmailWithGmailApp_(to, subject, htmlBody, cc, isDemo) {
 }
 
 function sendHrIntakeAlertEmail(params) {
-  const subject = `[WVUSD Onboarding] New Access Request: ${params.candidateName} (${params.site})`;
+  const typeTag = params.employeeType ? `[${params.employeeType}] ` : "";
+  const subject = `[WVUSD Onboarding] ${typeTag}New Access Request: ${params.candidateName} (${params.site})`;
 
-  const subInfoHtml = params.requestType === "Long-Term Sub" ? `
-    <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; margin: 16px 0;">
-      <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: bold; color: #92400e;">Substitute Assignment Details:</p>
-      <p style="margin: 0; font-size: 12px; color: #78350f;">
-        Covering for: <strong>${params.originalTeacherName || "N/A"}</strong> (${params.originalTeacherEmail || "No email provided"})
-      </p>
-    </div>
-  ` : "";
+  const servicesBadges = params.requestedServices
+    .map(s => `<span style="display: inline-block; background-color: #eff6ff; color: #1d4ed8; padding: 4px 10px; margin: 2px 4px 2px 0; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid #bfdbfe;">${s}</span>`)
+    .join(" ");
 
-  const servicesBadges = params.requestedServices.map(s =>
-    `<span style="display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin: 2px 4px 2px 0;">${s}</span>`
-  ).join("");
+  const isSub = params.requestType === "Long-Term Sub";
 
   const htmlBody = `
     <!DOCTYPE html>
     <html>
     <head><meta charset="utf-8"></head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px;">
-      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-        <div style="background: linear-gradient(135deg, #0b3f6d 0%, #0170c5 100%); padding: 24px; text-align: center; color: #ffffff;">
-          <img src="${DISTRICT_LOGO}" alt="WVUSD Logo" style="height: 52px; width: auto; margin-bottom: 8px;" />
-          <h2 style="margin: 0; font-size: 18px; font-weight: 800;">WVUSD Onboarding & Access Portal</h2>
-          <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9;">New Employee / Long-Term Sub Access Request</p>
-        </div>
-
-        <div style="padding: 24px; color: #1e293b;">
-          <div style="display: inline-block; background: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; margin-bottom: 12px;">
-            ACTION REQUIRED: HR WORK EMAIL ASSIGNMENT
-          </div>
-
-          <h3 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 800; color: #0f172a;">
-            ${params.candidateName}
-          </h3>
-
-          <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px;">
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f1f5f9; padding: 24px; margin: 0; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+        
+        <div style="background: linear-gradient(135deg, #0b3f6d 0%, #1e3a8a 100%); color: #ffffff; padding: 24px; text-align: left;">
+          <table style="width: 100%; border-collapse: collapse;">
             <tr>
-              <td style="padding: 6px 0; color: #64748b; width: 140px; font-weight: 600;">Request ID:</td>
-              <td style="padding: 6px 0; font-weight: 700; color: #0f172a;">${params.requestId}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Request Type:</td>
-              <td style="padding: 6px 0; font-weight: 600; color: #0284c7;">${params.requestType}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">School / Site:</td>
-              <td style="padding: 6px 0; font-weight: 600;">${params.site}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Submitted By:</td>
-              <td style="padding: 6px 0; color: #334155;">${params.submitterEmail}</td>
+              <td>
+                <span style="font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #93c5fd;">Walnut Valley Unified School District</span>
+                <h1 style="margin: 6px 0 0 0; font-size: 20px; font-weight: 800; color: #ffffff;">New System Access Request Submitted</h1>
+              </td>
             </tr>
           </table>
+        </div>
 
-          ${subInfoHtml}
+        <div style="padding: 24px;">
+          <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr>
+                <td style="color: #64748b; font-weight: 600; width: 130px; padding: 4px 0;">Request ID:</td>
+                <td style="font-weight: 700; color: #0b3f6d; padding: 4px 0;">${params.requestId}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Candidate:</td>
+                <td style="font-weight: 700; color: #0f172a; padding: 4px 0;">${params.candidateName}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Request Type:</td>
+                <td style="padding: 4px 0;"><span style="background-color: ${isSub ? '#f3e8ff' : '#e0e7ff'}; color: ${isSub ? '#6b21a8' : '#3730a3'}; font-weight: 700; padding: 2px 8px; border-radius: 4px;">${params.requestType}</span></td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Employee Type:</td>
+                <td style="font-weight: 700; color: #0f172a; padding: 4px 0;">${params.employeeType || "N/A"}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">School / Site:</td>
+                <td style="font-weight: 600; color: #334155; padding: 4px 0;">${params.site}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Submitted By:</td>
+                <td style="color: #334155; padding: 4px 0;">${params.submitterEmail || 'Site Staff'}</td>
+              </tr>
+              ${isSub ? `
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Covering For:</td>
+                <td style="font-weight: 600; color: #7e22ce; padding: 4px 0;">${params.originalTeacherName} (${params.originalTeacherEmail || 'No email provided'})</td>
+              </tr>
+              ` : ""}
+            </table>
+          </div>
 
-          <div style="margin: 16px 0;">
-            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase;">Requested Topics & Services:</p>
+          <div style="margin-bottom: 24px;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Requested Systems & Services:</p>
             <div>${servicesBadges}</div>
           </div>
 
-          <p style="font-size: 13px; color: #475569; line-height: 1.5; margin-top: 20px;">
-            Please log into the WVUSD Onboarding Portal to assign the candidate's official district work email. Entering the email transitions the status to <strong>In Progress</strong> and notifies the assigned specialists.
-          </p>
+          <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: #92400e; margin-bottom: 20px;">
+            <strong>Action Required by HR:</strong> Please log into the Onboarding Portal to assign the official district email address. Assigning the email will automatically dispatch task notices to all assigned system specialists.
+          </div>
         </div>
 
-        <div style="background-color: #f8fafc; padding: 16px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
-          Walnut Valley Unified School District • Human Resources
+        <div style="background-color: #f8fafc; padding: 14px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
+          Walnut Valley Unified School District • Human Resources Automation
         </div>
       </div>
     </body>
@@ -905,71 +988,70 @@ function sendHrIntakeAlertEmail(params) {
 }
 
 function sendSpecialistDispatchEmail(params) {
-  const subject = `[WVUSD Access Task] System Provisioning for ${params.candidateName} (${params.site})`;
+  const subject = `[Action Required] System Access Task: ${params.candidateName} (${params.site})`;
 
-  const servicesHtml = params.assignedServices.map(s =>
-    `<li style="margin-bottom: 4px; font-weight: 600; color: #0284c7;">${s}</li>`
-  ).join("");
+  const servicesBadges = params.assignedServices
+    .map(s => `<span style="display: inline-block; background-color: #ecfdf5; color: #047857; padding: 4px 10px; margin: 2px 4px 2px 0; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid #a7f3d0;">✓ ${s}</span>`)
+    .join(" ");
 
-  const subInfoHtml = params.requestType === "Long-Term Sub" ? `
-    <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 10px; margin: 12px 0; font-size: 12px; color: #78350f;">
-      <strong>Substitute Assignment:</strong> Covering for <em>${params.originalTeacherName || "N/A"}</em> (${params.originalTeacherEmail || "N/A"}).
-    </div>
-  ` : "";
+  const isSub = params.requestType === "Long-Term Sub";
 
   const htmlBody = `
     <!DOCTYPE html>
     <html>
     <head><meta charset="utf-8"></head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px;">
-      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-        <div style="background: linear-gradient(135deg, #0b3f6d 0%, #0170c5 100%); padding: 20px; text-align: center; color: #ffffff;">
-          <img src="${DISTRICT_LOGO}" alt="WVUSD Logo" style="height: 48px; width: auto; margin-bottom: 6px;" />
-          <h2 style="margin: 0; font-size: 17px; font-weight: 800;">WVUSD System Provisioning Task</h2>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f1f5f9; padding: 24px; margin: 0; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+        
+        <div style="background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); color: #ffffff; padding: 24px;">
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #99f6e4;">WVUSD System Specialist Dispatch</span>
+          <h1 style="margin: 6px 0 0 0; font-size: 20px; font-weight: 800; color: #ffffff;">System Access Provisioning Required</h1>
         </div>
 
-        <div style="padding: 24px; color: #1e293b;">
-          <p style="font-size: 14px; margin-top: 0;">
-            A new employee or long-term substitute has been assigned an official District Work Email. Please provision access for your assigned topic(s):
-          </p>
-
-          <div style="background-color: #f1f5f9; border-radius: 12px; padding: 16px; margin: 16px 0;">
+        <div style="padding: 24px;">
+          <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
               <tr>
                 <td style="color: #64748b; font-weight: 600; width: 130px; padding: 4px 0;">Candidate:</td>
-                <td style="font-weight: 800; color: #0f172a; padding: 4px 0;">${params.candidateName}</td>
+                <td style="font-weight: 700; color: #0f172a; padding: 4px 0;">${params.candidateName}</td>
               </tr>
               <tr>
-                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Work Email:</td>
-                <td style="font-weight: 700; color: #0369a1; padding: 4px 0; font-family: monospace;">${params.workEmail}</td>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Assigned Work Email:</td>
+                <td style="font-weight: 700; color: #0284c7; padding: 4px 0; font-family: monospace;">${params.workEmail}</td>
               </tr>
               <tr>
-                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Type / Site:</td>
-                <td style="padding: 4px 0;">${params.requestType} • <strong>${params.site}</strong></td>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">School / Site:</td>
+                <td style="font-weight: 600; color: #334155; padding: 4px 0;">${params.site}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Employee Type:</td>
+                <td style="font-weight: 700; color: #0f172a; padding: 4px 0;">${params.employeeType || "N/A"}</td>
               </tr>
               <tr>
                 <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Request ID:</td>
-                <td style="padding: 4px 0; font-weight: bold;">${params.requestId}</td>
+                <td style="padding: 4px 0;">${params.requestId}</td>
               </tr>
+              ${isSub ? `
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Sub Covering For:</td>
+                <td style="font-weight: 600; color: #7e22ce; padding: 4px 0;">${params.originalTeacherName} (${params.originalTeacherEmail || 'No email'})</td>
+              </tr>
+              ` : ""}
             </table>
           </div>
 
-          ${subInfoHtml}
-
-          <div style="margin: 16px 0;">
-            <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #0f172a;">Your Responsible System Topics:</p>
-            <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
-              ${servicesHtml}
-            </ul>
+          <div style="margin-bottom: 24px;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase;">Your Assigned Tasks:</p>
+            <div>${servicesBadges}</div>
           </div>
 
-          <p style="font-size: 13px; color: #475569; line-height: 1.5; margin-top: 20px;">
-            Once you have provisioned access or verified the account, please check off the corresponding items in the WVUSD Onboarding Portal.
-          </p>
+          <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: #065f46;">
+            <strong>Instructions:</strong> Please provision the requested access for the candidate above. When completed, open the Onboarding Portal to check off your item.
+          </div>
         </div>
 
         <div style="background-color: #f8fafc; padding: 14px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
-          WVUSD System Provisioning Task Notification
+          Walnut Valley Unified School District • Technology & Specialist Services
         </div>
       </div>
     </body>
@@ -979,78 +1061,40 @@ function sendSpecialistDispatchEmail(params) {
   sendEmailWithGmailApp_(params.specialistEmail, subject, htmlBody, null, params.isDemo);
 }
 
-function sendCommentAlertEmail(params) {
-  const subject = `[WVUSD Note] Specialist Comment on ${params.candidateName} (${params.requestId})`;
-
-  const htmlBody = `
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8"></head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px;">
-      <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-        <div style="background: #0f172a; padding: 18px 24px; color: #ffffff;">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 700;">Specialist Note Logged</h3>
-          <p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8;">Candidate: ${params.candidateName} • ${params.site}</p>
-        </div>
-
-        <div style="padding: 24px; color: #1e293b;">
-          <div style="background-color: #f8fafc; border-left: 4px solid #0284c7; padding: 14px 16px; border-radius: 0 8px 8px 0; margin-bottom: 16px;">
-            <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: 700; color: #64748b;">
-              Note from ${params.authorEmail}:
-            </p>
-            <p style="margin: 0; font-size: 14px; color: #0f172a; line-height: 1.5; white-space: pre-wrap;">${params.commentText}</p>
-          </div>
-
-          <table style="font-size: 12px; color: #64748b;">
-            <tr><td>Request ID:</td><td style="font-weight: 600; color: #1e293b; padding-left: 8px;">${params.requestId}</td></tr>
-            <tr><td>Work Email:</td><td style="font-weight: 600; color: #1e293b; padding-left: 8px;">${params.workEmail || "Pending Assignment"}</td></tr>
-          </table>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
-  sendEmailWithGmailApp_(params.hrEmails, subject, htmlBody, null, params.isDemo);
-}
-
 function sendFinalResolutionEmail(params) {
-  const subject = `[COMPLETED] System Access Fully Provisioned: ${params.candidateName} (${params.site})`;
+  const typeTag = params.employeeType ? `[${params.employeeType}] ` : "";
+  const subject = `[COMPLETED] ${typeTag}All Systems Provisioned: ${params.candidateName} (${params.site})`;
 
-  const servicesBadges = params.completedServices.map(s =>
-    `<span style="display: inline-block; background-color: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin: 2px 4px 2px 0;">✓ ${s}</span>`
-  ).join("");
+  const servicesBadges = params.completedServices
+    .map(s => `<span style="display: inline-block; background-color: #ecfdf5; color: #047857; padding: 3px 8px; margin: 2px 4px 2px 0; border-radius: 4px; font-size: 11px; font-weight: 600;">✓ ${s}</span>`)
+    .join(" ");
 
   const htmlBody = `
     <!DOCTYPE html>
     <html>
     <head><meta charset="utf-8"></head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px;">
-      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-        <div style="background: linear-gradient(135deg, #065f46 0%, #059669 100%); padding: 24px; text-align: center; color: #ffffff;">
-          <img src="${DISTRICT_LOGO}" alt="WVUSD Logo" style="height: 52px; width: auto; margin-bottom: 8px;" />
-          <h2 style="margin: 0; font-size: 18px; font-weight: 800;">System Access Provisioning Complete</h2>
-          <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9;">All requested system credentials have been activated</p>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f1f5f9; padding: 24px; margin: 0; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+        
+        <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; padding: 24px;">
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #a7f3d0;">Onboarding Access Resolution</span>
+          <h1 style="margin: 6px 0 0 0; font-size: 20px; font-weight: 800; color: #ffffff;">System Provisioning 100% Completed</h1>
         </div>
 
-        <div style="padding: 24px; color: #1e293b;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <div style="display: inline-block; width: 44px; height: 44px; background: #dcfce7; color: #16a34a; border-radius: 50%; font-size: 24px; line-height: 44px; font-weight: bold;">
-              ✓
-            </div>
-            <h3 style="margin: 10px 0 2px 0; font-size: 20px; font-weight: 800; color: #0f172a;">
-              ${params.candidateName}
-            </h3>
-            <p style="margin: 0; font-size: 13px; color: #64748b;">
-              ${params.requestType} • <strong>${params.site}</strong>
-            </p>
-          </div>
+        <div style="padding: 24px;">
+          <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-top: 0;">
+            All requested system credentials and access permissions have been verified and activated for <strong>${params.candidateName}</strong> at <strong>${params.site}</strong>.
+          </p>
 
-          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+          <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
               <tr>
                 <td style="color: #64748b; font-weight: 600; width: 130px; padding: 4px 0;">Work Email:</td>
                 <td style="font-weight: 700; color: #059669; padding: 4px 0; font-family: monospace;">${params.workEmail}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Employee Type:</td>
+                <td style="font-weight: 700; color: #0f172a; padding: 4px 0;">${params.employeeType || "N/A"}</td>
               </tr>
               <tr>
                 <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Request ID:</td>
@@ -1086,6 +1130,129 @@ function sendFinalResolutionEmail(params) {
   sendEmailWithGmailApp_(params.hrEmails, subject, htmlBody, params.ccEmails, params.isDemo);
 }
 
+function sendCommentAlertEmail(params) {
+  const typeTag = params.employeeType ? `[${params.employeeType}] ` : "";
+  const subject = `[Staff Note] ${typeTag}${params.candidateName} (${params.requestId})`;
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f1f5f9; padding: 24px; margin: 0; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+        
+        <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #ffffff; padding: 20px 24px;">
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #94a3b8;">WVUSD Onboarding Note Alert</span>
+          <h2 style="margin: 4px 0 0 0; font-size: 18px; font-weight: 800; color: #ffffff;">Specialist Comment Added</h2>
+        </div>
+
+        <div style="padding: 24px;">
+          <p style="font-size: 13px; color: #64748b; margin-top: 0;">
+            A comment was logged regarding <strong>${params.candidateName}</strong> (${params.site}) by <strong>${params.authorEmail}</strong>:
+          </p>
+
+          <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 14px 16px; border-radius: 8px; font-size: 13px; color: #1e293b; line-height: 1.5; margin: 16px 0; font-style: italic;">
+            "${params.commentText}"
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px; color: #64748b;">
+            <tr>
+              <td style="padding: 3px 0; width: 120px;">Request ID:</td>
+              <td style="padding: 3px 0; font-weight: bold; color: #334155;">${params.requestId}</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 0;">Employee Type:</td>
+              <td style="padding: 3px 0; font-weight: bold; color: #334155;">${params.employeeType || "N/A"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 0;">Work Email:</td>
+              <td style="padding: 3px 0; color: #334155;">${params.workEmail || 'Pending HR'}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background-color: #f8fafc; padding: 12px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
+          Walnut Valley Unified School District • Onboarding Portal Communications
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  sendEmailWithGmailApp_(params.hrEmails, subject, htmlBody, null, params.isDemo);
+}
+
+function sendSpecialistReminderEmail(params) {
+  const typeTag = params.employeeType ? `[${params.employeeType}] ` : "";
+  const subject = `[Reminder - 3+ Days Pending] ${typeTag}Incomplete Access Task: ${params.candidateName} (${params.site})`;
+
+  const pendingBadges = params.pendingTopics
+    .map(t => `<span style="display: inline-block; background-color: #fff1f2; color: #e11d48; padding: 4px 10px; margin: 2px 4px 2px 0; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid #fecdd3;">⏳ ${t}</span>`)
+    .join(" ");
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f1f5f9; padding: 24px; margin: 0; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+        
+        <div style="background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%); color: #ffffff; padding: 24px;">
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #fca5a5;">WVUSD Task Reminder Notice</span>
+          <h1 style="margin: 6px 0 0 0; font-size: 20px; font-weight: 800; color: #ffffff;">Action Required: Incomplete Provisioning</h1>
+        </div>
+
+        <div style="padding: 24px;">
+          <div style="background-color: #fff1f2; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: #991b1b; margin-bottom: 20px;">
+            <strong>Notice:</strong> This request has been assigned for <strong>${params.daysPending} days</strong> and is still awaiting completion.
+          </div>
+
+          <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr>
+                <td style="color: #64748b; font-weight: 600; width: 130px; padding: 4px 0;">Candidate:</td>
+                <td style="font-weight: 700; color: #0f172a; padding: 4px 0;">${params.candidateName}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Assigned Work Email:</td>
+                <td style="font-weight: 700; color: #0284c7; padding: 4px 0; font-family: monospace;">${params.workEmail}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">School / Site:</td>
+                <td style="font-weight: 600; color: #334155; padding: 4px 0;">${params.site}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Employee Type:</td>
+                <td style="font-weight: 700; color: #0f172a; padding: 4px 0;">${params.employeeType || "N/A"}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b; font-weight: 600; padding: 4px 0;">Request ID:</td>
+                <td style="padding: 4px 0;">${params.requestId}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="margin-bottom: 24px;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase;">Your Outstanding Items:</p>
+            <div>${pendingBadges}</div>
+          </div>
+
+          <p style="font-size: 13px; color: #475569; line-height: 1.5; margin: 0;">
+            Please complete setup for these services and check them off in the portal as soon as possible to ensure timely onboarding.
+          </p>
+        </div>
+
+        <div style="background-color: #f8fafc; padding: 14px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
+          Walnut Valley Unified School District • Automated Reminder Dispatch
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  sendEmailWithGmailApp_(params.specialistEmail, subject, htmlBody, null, params.isDemo);
+}
+
 /**
  * ------------------------------------------------------------------------------
  * AUTOMATED 3-DAY REMINDER WORKFLOW
@@ -1110,7 +1277,7 @@ function sendPendingSpecialistReminders(isDemo) {
 
   // Build topic -> [specialistEmails] map
   const topicMap = {};
-  const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name"];
+  const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics"];
   for (let r = 0; r < specData.length; r++) {
     const topic = String(specData[r][0] || "").trim();
     if (!topic) continue;
@@ -1124,24 +1291,24 @@ function sendPendingSpecialistReminders(isDemo) {
 
   for (let r = 1; r < reqData.length; r++) {
     const row = reqData[r];
-    const status = String(row[11] || "").trim();
+    const status = String(row[12] || "").trim(); // Col M (13)
     if (status !== "In Progress") continue;
 
     const requestId = String(row[0] || "").trim();
-    const candidateName = `${row[4]} ${row[5]}`.trim();
-    const site = String(row[3] || "").trim();
-    const workEmail = String(row[6] || "").trim();
-    const comments = String(row[14] || "").trim();
+    const candidateName = `${row[5]} ${row[6]}`.trim();
+    const site = String(row[4] || "").trim();
+    const workEmail = String(row[7] || "").trim();
+    const comments = String(row[15] || "").trim(); // Col P (16)
 
-    // Determine baseline date: HR Assigned At (Col N), fallback Created At (Col B)
-    const assignedDate = row[13] ? new Date(row[13]) : (row[1] ? new Date(row[1]) : now);
+    // Determine baseline date: HR Assigned At (Col O / index 14), fallback Created At (Col B / index 1)
+    const assignedDate = row[14] ? new Date(row[14]) : (row[1] ? new Date(row[1]) : now);
     const daysSinceAssigned = Math.floor((nowMs - assignedDate.getTime()) / (1000 * 60 * 60 * 24));
 
     if (daysSinceAssigned < 3) continue;
 
-    // Remaining incomplete topics
-    const requestedArr = String(row[9] || "").split(",").map(s => s.trim()).filter(Boolean);
-    const completedArr = String(row[10] || "").split(",").map(s => s.trim()).filter(Boolean);
+    // Remaining incomplete topics: Col K (10) and Col L (11)
+    const requestedArr = String(row[10] || "").split(",").map(s => s.trim()).filter(Boolean);
+    const completedArr = String(row[11] || "").split(",").map(s => s.trim()).filter(Boolean);
     const pendingTopics = requestedArr.filter(reqTopic =>
       !completedArr.some(c => c.toLowerCase() === reqTopic.toLowerCase())
     );
@@ -1149,7 +1316,7 @@ function sendPendingSpecialistReminders(isDemo) {
     if (pendingTopics.length === 0) continue;
 
     // Check last reminder timestamp recorded in comments to enforce 3-day spacing
-    const lastReminderMatch = comments.match(/\[Reminder Sent:\s*(\d{4}-\d{2}-\d{2})\]/g);
+    const lastReminderMatch = comments.match(/\[Reminder Sent: (\d{4}-\d{2}-\d{2})\]/g);
     if (lastReminderMatch && lastReminderMatch.length > 0) {
       const lastEntry = lastReminderMatch[lastReminderMatch.length - 1];
       const dateMatch = lastEntry.match(/(\d{4}-\d{2}-\d{2})/);
@@ -1157,118 +1324,57 @@ function sendPendingSpecialistReminders(isDemo) {
         const lastDate = new Date(dateMatch[1]);
         const daysSinceLastReminder = Math.floor((nowMs - lastDate.getTime()) / (1000 * 60 * 60 * 24));
         if (daysSinceLastReminder < 3) {
-          continue; // Already reminded within the last 3 days
+          continue; // Less than 3 days since the previous reminder
         }
       }
     }
 
-    // Map each pending specialist email to the topics they still owe
-    const specialistOwedTopics = {}; // email -> [topics]
+    // Group pending topics by specialist email
+    const specialistPendingMap = {};
     pendingTopics.forEach(topic => {
       const emails = topicMap[topic.toLowerCase()] || [];
       emails.forEach(email => {
-        if (!specialistOwedTopics[email]) specialistOwedTopics[email] = [];
-        specialistOwedTopics[email].push(topic);
+        if (!specialistPendingMap[email]) specialistPendingMap[email] = [];
+        specialistPendingMap[email].push(topic);
       });
     });
 
-    const nowStampDate = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd");
-    const nowStampTime = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
+    // Send reminder email to each specialist
+    const todayStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    let sentToSpecialist = false;
 
-    // Fire reminders to each specialist
-    Object.keys(specialistOwedTopics).forEach(specEmail => {
-      sendSpecialistReminderEmail({
-        specialistEmail: specEmail,
-        requestId: requestId,
-        candidateName: candidateName,
-        workEmail: workEmail,
-        site: site,
-        pendingTopics: specialistOwedTopics[specEmail],
-        daysPending: daysSinceAssigned,
-        isDemo: isDemo
-      });
-      remindersSent++;
+    Object.keys(specialistPendingMap).forEach(specEmail => {
+      try {
+        sendSpecialistReminderEmail({
+          specialistEmail: specEmail,
+          requestId: requestId,
+          candidateName: candidateName,
+          workEmail: workEmail,
+          site: site,
+          requestType: row[2],
+          employeeType: row[3],
+          pendingTopics: specialistPendingMap[specEmail],
+          daysPending: daysSinceAssigned,
+          isDemo: Boolean(isDemo)
+        });
+        sentToSpecialist = true;
+        remindersSent++;
+      } catch (remErr) {
+        Logger.log(`Failed to send reminder for ${requestId} to ${specEmail}: ${remErr.toString()}`);
+      }
     });
 
-    // Append reminder note into record
-    const reminderLog = `[${nowStampTime} System Reminder Sent: ${nowStampDate}]: Dispatched 3-day reminder for pending items (${pendingTopics.join(", ")})`;
-    const updatedComments = comments ? `${comments}\n${reminderLog}` : reminderLog;
-    reqSheet.getRange(r + 1, 15).setValue(updatedComments);
-    logEntries.push(`${requestId} (${candidateName}): Reminded ${Object.keys(specialistOwedTopics).join(", ")}`);
+    if (sentToSpecialist) {
+      const reminderLog = `[${Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm")} System]: [Reminder Sent: ${todayStr}] 3-day reminder notice sent for pending tasks: ${pendingTopics.join(", ")}`;
+      const updatedComments = comments ? `${comments}\n${reminderLog}` : reminderLog;
+      reqSheet.getRange(r + 1, 16).setValue(updatedComments); // Col P (16)
+      logEntries.push(`Sent reminder for ${requestId} (${candidateName}) to ${Object.keys(specialistPendingMap).join(", ")}`);
+    }
   }
 
   return {
     success: true,
     remindersSent: remindersSent,
-    log: logEntries,
-    timestamp: now.toISOString()
+    log: logEntries
   };
-}
-
-function sendSpecialistReminderEmail(params) {
-  const subject = `[ACTION REQUIRED - 3-DAY REMINDER] Pending Provisioning: ${params.candidateName} (${params.site})`;
-
-  const topicsListHtml = params.pendingTopics.map(t =>
-    `<li style="margin-bottom: 6px; font-weight: 700; color: #b45309; font-size: 14px;">${t}</li>`
-  ).join("");
-
-  const htmlBody = `
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8"></head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px;">
-      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #fde68a; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-        <div style="background: linear-gradient(135deg, #78350f 0%, #b45309 100%); padding: 22px; text-align: center; color: #ffffff;">
-          <img src="${DISTRICT_LOGO}" alt="WVUSD Logo" style="height: 48px; width: auto; margin-bottom: 6px;" />
-          <h2 style="margin: 0; font-size: 18px; font-weight: 800;">Pending System Provisioning Reminder</h2>
-          <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9;">Action required: ${params.daysPending} days since assignment</p>
-        </div>
-
-        <div style="padding: 24px; color: #1e293b;">
-          <p style="font-size: 14px; margin-top: 0; color: #334155; line-height: 1.5;">
-            This is an automated 3-day reminder that system access for <strong>${params.candidateName}</strong> is still pending your action:
-          </p>
-
-          <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin: 16px 0;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-              <tr>
-                <td style="color: #92400e; font-weight: 600; width: 130px; padding: 4px 0;">Candidate:</td>
-                <td style="font-weight: 800; color: #78350f; padding: 4px 0;">${params.candidateName}</td>
-              </tr>
-              <tr>
-                <td style="color: #92400e; font-weight: 600; padding: 4px 0;">Work Email:</td>
-                <td style="font-weight: 700; color: #0284c7; padding: 4px 0; font-family: monospace;">${params.workEmail}</td>
-              </tr>
-              <tr>
-                <td style="color: #92400e; font-weight: 600; padding: 4px 0;">School / Site:</td>
-                <td style="padding: 4px 0; font-weight: 600;">${params.site}</td>
-              </tr>
-              <tr>
-                <td style="color: #92400e; font-weight: 600; padding: 4px 0;">Request ID:</td>
-                <td style="padding: 4px 0; font-weight: bold;">${params.requestId}</td>
-              </tr>
-            </table>
-          </div>
-
-          <div style="margin: 20px 0;">
-            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 800; color: #92400e; text-transform: uppercase;">Your Pending Systems to Complete:</p>
-            <ul style="margin: 0; padding-left: 20px;">
-              ${topicsListHtml}
-            </ul>
-          </div>
-
-          <p style="font-size: 13px; color: #475569; line-height: 1.5; margin-top: 20px;">
-            Please log into the WVUSD Onboarding Portal to mark your assigned system items as completed once provisioned.
-          </p>
-        </div>
-
-        <div style="background-color: #f8fafc; padding: 14px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
-          Walnut Valley Unified School District • Automated Reminder Service
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
-  sendEmailWithGmailApp_(params.specialistEmail, subject, htmlBody, null, params.isDemo);
 }

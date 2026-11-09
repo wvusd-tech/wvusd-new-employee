@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
 import { getSiteLogo } from '../config.js';
-import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
+import StatusBadge, { TypeBadge, EmployeeTypeBadge } from './StatusBadge.jsx';
 import RequestDetailsModal from './RequestDetailsModal.jsx';
 import {
   Wrench,
@@ -229,6 +229,9 @@ export default function SpecialistView() {
                               {req.id}
                             </span>
                             <TypeBadge type={req.requestType} />
+                            {req.employeeType && req.employeeType !== 'Substitute' && (
+                              <EmployeeTypeBadge type={req.employeeType} />
+                            )}
                           </div>
                           <h4 className="text-base font-black text-slate-900 mt-0.5 truncate">
                             {req.fullName}

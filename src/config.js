@@ -18,7 +18,7 @@ export const ALLOWED_DOMAINS = ["wvusd.org"];
 
 export const APPS_SCRIPT_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_APPS_SCRIPT_URL) ||
-  "https://script.google.com/macros/s/AKfycby4W0lXlh8cWhHt55VoOUgS4t3iAx2DegY99JKp94yUrBZ3fnM3oFzYhj5HrkJSl6PNuQ/exec";
+  "https://script.google.com/macros/s/AKfycbwwsjozAk1X0b2bwVRs86BwbhH_sWNtRWNaD-_7iqbzMnWP0opbu-NvXpZ9rbr2QVKswg/exec";
 
 export const SITE_LOGOS = {
   "diamond bar": "https://res.cloudinary.com/djv9u4054/image/upload/v1783632852/0-DBARBRAHMASWide_q8uled-removebg-preview_x7ta88.png",

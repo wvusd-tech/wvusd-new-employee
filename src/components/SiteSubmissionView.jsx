@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
-import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
+import StatusBadge, { TypeBadge, EmployeeTypeBadge } from './StatusBadge.jsx';
 import RequestDetailsModal from './RequestDetailsModal.jsx';
 import { getSiteLogo } from '../config.js';
 import {
@@ -25,6 +25,7 @@ export default function SiteSubmissionView() {
 
   // Intake Form State
   const [requestType, setRequestType] = useState('New Employee'); // 'New Employee' | 'Long-Term Sub'
+  const [employeeType, setEmployeeType] = useState('Classified'); // 'Classified' | 'Certificated'
   const [selectedSite, setSelectedSite] = useState(() => {
     if (impersonatedSite) return impersonatedSite;
     if (user?.authorizedSites && user.authorizedSites.length > 0) {
@@ -111,8 +112,10 @@ export default function SiteSubmissionView() {
 
     setIsSubmitting(true);
     try {
+      const resolvedEmployeeType = requestType === 'Long-Term Sub' ? 'Substitute' : employeeType;
       const payload = {
         requestType,
+        employeeType: resolvedEmployeeType,
         site: selectedSite,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -126,13 +129,14 @@ export default function SiteSubmissionView() {
 
       if (result.success) {
         const demoNote = isDemoMode ? " (Demo Mode Active: Live email suppressed)" : "";
-        setSubmitSuccess(`Request for ${firstName} ${lastName} submitted successfully (Status: Pending HR). An alert has been dispatched to HR.${demoNote}`);
+        setSubmitSuccess(`Request for ${firstName} ${lastName} (${resolvedEmployeeType}) submitted successfully (Status: Pending HR). An alert has been dispatched to HR.${demoNote}`);
         // Reset form fields
         setFirstName('');
         setLastName('');
         setOriginalTeacherName('');
         setOriginalTeacherEmail('');
         setSelectedServices([]);
+        setEmployeeType('Classified');
         // Refresh requests list
         await refreshData();
       } else {
@@ -236,6 +240,51 @@ export default function SiteSubmissionView() {
                 </button>
               </div>
             </div>
+
+            {/* Employee Classification Toggle (Classified vs Certificated) */}
+            {requestType === 'New Employee' ? (
+              <div className="animate-fade-in">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>
+                    Employee Type <span className="text-rose-500">*</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    {employeeType === 'Classified' ? 'Routes to Classified HR (Cell E1)' : 'Routes to Certificated HR (Cell F1)'}
+                  </span>
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setEmployeeType('Classified')}
+                    className={`py-2 text-xs font-bold rounded-xl transition ${
+                      employeeType === 'Classified'
+                        ? 'bg-white text-emerald-800 shadow-sm border border-emerald-300'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Classified
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmployeeType('Certificated')}
+                    className={`py-2 text-xs font-bold rounded-xl transition ${
+                      employeeType === 'Certificated'
+                        ? 'bg-white text-indigo-800 shadow-sm border border-indigo-300'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Certificated
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-2.5 bg-purple-50 rounded-2xl border border-purple-200 text-xs text-purple-900 flex items-center justify-between animate-fade-in">
+                <span className="font-bold">Classification: Long-Term Substitute</span>
+                <span className="text-[10px] text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-full font-semibold">
+                  Routes to Sub HR (Cell C1)
+                </span>
+              </div>
+            )}
 
             {/* Site Dropdown */}
             <div>
@@ -485,7 +534,12 @@ export default function SiteSubmissionView() {
                         </td>
 
                         <td className="py-3 px-3">
-                          <TypeBadge type={req.requestType} />
+                          <div className="flex flex-col gap-1 items-start">
+                            <TypeBadge type={req.requestType} />
+                            {req.employeeType && req.employeeType !== 'Substitute' && (
+                              <EmployeeTypeBadge type={req.employeeType} />
+                            )}
+                          </div>
                         </td>
 
                         <td className="py-3 px-3">

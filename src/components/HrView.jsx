@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
 import { getSiteLogo } from '../config.js';
-import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
+import StatusBadge, { TypeBadge, EmployeeTypeBadge } from './StatusBadge.jsx';
 import RequestDetailsModal from './RequestDetailsModal.jsx';
 import {
   UserCheck,
@@ -334,6 +334,9 @@ export default function HrView() {
                               {req.id}
                             </span>
                             <TypeBadge type={req.requestType} />
+                            {req.employeeType && req.employeeType !== 'Substitute' && (
+                              <EmployeeTypeBadge type={req.employeeType} />
+                            )}
                           </div>
                           <h4 className="text-base font-black text-slate-900 mt-0.5 truncate">
                             {req.fullName}
@@ -460,8 +463,13 @@ export default function HrView() {
                   <h3 className="text-xl font-black text-white mt-0.5">
                     Assign District Work Email
                   </h3>
-                  <p className="text-xs text-amber-100 mt-0.5">
+                  <p className="text-xs text-amber-100 mt-0.5 flex items-center gap-2">
                     <strong>{assignModalRequest.fullName}</strong> • {assignModalRequest.site}
+                    {assignModalRequest.employeeType && (
+                      <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase">
+                        {assignModalRequest.employeeType}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

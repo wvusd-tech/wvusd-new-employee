@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
-import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
+import StatusBadge, { TypeBadge, EmployeeTypeBadge } from './StatusBadge.jsx';
 import RequestDetailsModal from './RequestDetailsModal.jsx';
 import { getSiteLogo } from '../config.js';
 import {
@@ -321,8 +321,11 @@ export default function AdminView() {
                           </div>
                           <span className="font-semibold text-slate-800">{req.site}</span>
                         </div>
-                        <div className="mt-1">
+                        <div className="mt-1 flex items-center gap-1 flex-wrap">
                           <TypeBadge type={req.requestType} />
+                          {req.employeeType && req.employeeType !== 'Substitute' && (
+                            <EmployeeTypeBadge type={req.employeeType} />
+                          )}
                         </div>
                       </td>
 

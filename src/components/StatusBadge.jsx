@@ -61,3 +61,27 @@ export function TypeBadge({ type }) {
     </span>
   );
 }
+
+export function EmployeeTypeBadge({ type }) {
+  if (!type) return null;
+  const t = String(type).trim().toLowerCase();
+  if (t.includes('class')) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold tracking-wide uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+        Classified
+      </span>
+    );
+  }
+  if (t.includes('cert')) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold tracking-wide uppercase bg-indigo-100 text-indigo-800 border border-indigo-200">
+        Certificated
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold tracking-wide uppercase bg-slate-100 text-slate-700 border border-slate-200">
+      {type}
+    </span>
+  );
+}
