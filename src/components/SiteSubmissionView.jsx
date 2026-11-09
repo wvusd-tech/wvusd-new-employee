@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
 import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
 import RequestDetailsModal from './RequestDetailsModal.jsx';
+import { getSiteLogo } from '../config.js';
 import {
   UserPlus,
   Users,
@@ -464,11 +465,22 @@ export default function SiteSubmissionView() {
                     return (
                       <tr key={req.id} className="hover:bg-slate-50/70 transition">
                         <td className="py-3 px-3.5">
-                          <div className="font-bold text-slate-900">{req.fullName}</div>
-                          <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
-                            <span>{req.id}</span>
-                            <span>•</span>
-                            <span>{req.site}</span>
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 p-0.5 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                              <img
+                                src={getSiteLogo(req.site)}
+                                alt={req.site}
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900">{req.fullName}</div>
+                              <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+                                <span>{req.id}</span>
+                                <span>•</span>
+                                <span>{req.site}</span>
+                              </div>
+                            </div>
                           </div>
                         </td>
 

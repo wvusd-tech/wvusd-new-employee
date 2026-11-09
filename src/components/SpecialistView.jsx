@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
+import { getSiteLogo } from '../config.js';
 import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
 import RequestDetailsModal from './RequestDetailsModal.jsx';
 import {
@@ -212,18 +213,27 @@ export default function SpecialistView() {
                   }`}
                 >
                   <div className="space-y-3">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-[11px] font-bold text-slate-500">
-                            {req.id}
-                          </span>
-                          <TypeBadge type={req.requestType} />
+                    {/* Header with Site Logo */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 p-1 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                          <img
+                            src={getSiteLogo(req.site)}
+                            alt={req.site}
+                            className="max-h-full max-w-full object-contain"
+                          />
                         </div>
-                        <h4 className="text-base font-black text-slate-900 mt-1">
-                          {req.fullName}
-                        </h4>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-[11px] font-bold text-slate-500">
+                              {req.id}
+                            </span>
+                            <TypeBadge type={req.requestType} />
+                          </div>
+                          <h4 className="text-base font-black text-slate-900 mt-0.5 truncate">
+                            {req.fullName}
+                          </h4>
+                        </div>
                       </div>
                       <StatusBadge status={req.status} size="sm" />
                     </div>

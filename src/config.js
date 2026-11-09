@@ -8,6 +8,9 @@ export const APP_TITLE = "WVUSD Employee & Sub Onboarding Access Portal";
 export const DISTRICT_LOGO =
   "https://res.cloudinary.com/djv9u4054/image/upload/v1783959106/UPdated_Black_and_White_Logo-removebg-preview_zubeqp.png";
 
+export const DISTRICT_SHIELD =
+  "https://res.cloudinary.com/djv9u4054/image/upload/v1793111822/Vintage_Retro_Automotive_Garage_Service_Badge_Logo_2_qcefb6.png";
+
 export const GOOGLE_CLIENT_ID =
   "243489966839-kcopbaj692oat1p2hoq5lrcddq9n4k17.apps.googleusercontent.com";
 
@@ -18,7 +21,7 @@ export const APPS_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycby4W0lXlh8cWhHt55VoOUgS4t3iAx2DegY99JKp94yUrBZ3fnM3oFzYhj5HrkJSl6PNuQ/exec";
 
 export const SITE_LOGOS = {
-  "diamond bar": "https://res.cloudinary.com/djv9u4054/image/upload/v178362852/0-DBARBRAHMASWide_q8uled-removebg-preview_x7ta88.png",
+  "diamond bar": "https://res.cloudinary.com/djv9u4054/image/upload/v1783632852/0-DBARBRAHMASWide_q8uled-removebg-preview_x7ta88.png",
   "south pointe": "https://res.cloudinary.com/djv9u4054/image/upload/v1783623577/copy_of_copy_of_spt_logo-removebg-preview_l7eve6.png",
   "maple hill": "https://res.cloudinary.com/djv9u4054/image/upload/v1783459666/copy_of_untitled_design_6_qhbikx.png",
   "chaparral": "https://res.cloudinary.com/djv9u4054/image/upload/v1781797508/CHP_Logo-removebg-preview_npea0e.png",
@@ -39,7 +42,7 @@ export const SITE_LOGOS = {
  * Resolves a school site name to its official logo
  */
 export function getSiteLogo(siteName) {
-  if (!siteName) return DISTRICT_LOGO;
+  if (!siteName) return DISTRICT_SHIELD;
   const lower = String(siteName).toLowerCase();
   if (lower.includes("walnut") && !lower.includes("high")) {
     return SITE_LOGOS["walnut elementary"];
@@ -47,7 +50,7 @@ export function getSiteLogo(siteName) {
   for (const [key, url] of Object.entries(SITE_LOGOS)) {
     if (lower.includes(key)) return url;
   }
-  return DISTRICT_LOGO;
+  return DISTRICT_SHIELD;
 }
 
 /**

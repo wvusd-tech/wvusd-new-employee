@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, MessageSquare, Send, CheckCircle2, Clock, User, Building, Mail, Calendar, Shield } from 'lucide-react';
 import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
 import { api } from '../services/api.js';
+import { getSiteLogo } from '../config.js';
 
 export default function RequestDetailsModal({ request, onClose, onUpdate, currentUserEmail }) {
   const [commentText, setCommentText] = useState('');
@@ -43,25 +44,34 @@ export default function RequestDetailsModal({ request, onClose, onUpdate, curren
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
         
-        {/* Modal Header */}
+        {/* Modal Header with School Site Logo */}
         <div className="bg-gradient-to-r from-slate-900 to-blue-950 text-white p-6 flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-blue-300 tracking-wider">
-                {request.id}
-              </span>
-              <TypeBadge type={request.requestType} />
-              <StatusBadge status={request.status} size="sm" />
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md p-1.5 flex items-center justify-center border border-white/20 shadow-md flex-shrink-0">
+              <img
+                src={getSiteLogo(request.site)}
+                alt={request.site}
+                className="max-h-full max-w-full object-contain filter drop-shadow-sm"
+              />
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white">
-              {request.fullName || `${request.firstName} ${request.lastName}`}
-            </h2>
-            <div className="text-xs text-slate-300 flex items-center gap-2">
-              <Building className="w-3.5 h-3.5 text-blue-400" />
-              <span>{request.site}</span>
-              <span>•</span>
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <span>Created {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'N/A'}</span>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-blue-300 tracking-wider">
+                  {request.id}
+                </span>
+                <TypeBadge type={request.requestType} />
+                <StatusBadge status={request.status} size="sm" />
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                {request.fullName || `${request.firstName} ${request.lastName}`}
+              </h2>
+              <div className="text-xs text-slate-300 flex items-center gap-2">
+                <Building className="w-3.5 h-3.5 text-blue-400" />
+                <span className="font-semibold">{request.site}</span>
+                <span>•</span>
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>Created {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'N/A'}</span>
+              </div>
             </div>
           </div>
 

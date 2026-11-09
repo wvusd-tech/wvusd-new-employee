@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
 import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
 import RequestDetailsModal from './RequestDetailsModal.jsx';
+import { getSiteLogo } from '../config.js';
 import {
   ShieldCheck,
   Search,
@@ -308,9 +309,18 @@ export default function AdminView() {
                         </div>
                       </td>
 
-                      {/* Site & Type */}
+                      {/* Site & Type with Site Logo */}
                       <td className="py-3.5 px-3">
-                        <div className="font-semibold text-slate-800">{req.site}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                            <img
+                              src={getSiteLogo(req.site)}
+                              alt={req.site}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          </div>
+                          <span className="font-semibold text-slate-800">{req.site}</span>
+                        </div>
                         <div className="mt-1">
                           <TypeBadge type={req.requestType} />
                         </div>

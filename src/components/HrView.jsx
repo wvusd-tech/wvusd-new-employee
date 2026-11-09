@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
+import { getSiteLogo } from '../config.js';
 import StatusBadge, { TypeBadge } from './StatusBadge.jsx';
 import RequestDetailsModal from './RequestDetailsModal.jsx';
 import {
@@ -317,18 +318,27 @@ export default function HrView() {
                   }`}
                 >
                   <div className="space-y-3">
-                    {/* Header Row */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-[11px] font-bold text-slate-500">
-                            {req.id}
-                          </span>
-                          <TypeBadge type={req.requestType} />
+                    {/* Header Row with Site Logo */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 p-1 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                          <img
+                            src={getSiteLogo(req.site)}
+                            alt={req.site}
+                            className="max-h-full max-w-full object-contain"
+                          />
                         </div>
-                        <h4 className="text-base font-black text-slate-900 mt-1">
-                          {req.fullName}
-                        </h4>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-[11px] font-bold text-slate-500">
+                              {req.id}
+                            </span>
+                            <TypeBadge type={req.requestType} />
+                          </div>
+                          <h4 className="text-base font-black text-slate-900 mt-0.5 truncate">
+                            {req.fullName}
+                          </h4>
+                        </div>
                       </div>
                       <StatusBadge status={req.status} size="sm" />
                     </div>
@@ -433,18 +443,27 @@ export default function HrView() {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-slide-up">
             
-            {/* Modal Header */}
+            {/* Modal Header with Site Logo */}
             <div className="bg-gradient-to-r from-amber-900 to-amber-950 text-white p-6 flex items-start justify-between">
-              <div>
-                <span className="font-mono text-xs font-bold text-amber-300 tracking-wider">
-                  {assignModalRequest.id}
-                </span>
-                <h3 className="text-xl font-black text-white mt-0.5">
-                  Assign District Work Email
-                </h3>
-                <p className="text-xs text-amber-100 mt-1">
-                  Candidate: <strong>{assignModalRequest.fullName}</strong> • {assignModalRequest.site}
-                </p>
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md p-1 flex items-center justify-center border border-white/20 shadow-md flex-shrink-0">
+                  <img
+                    src={getSiteLogo(assignModalRequest.site)}
+                    alt={assignModalRequest.site}
+                    className="max-h-full max-w-full object-contain filter drop-shadow-sm"
+                  />
+                </div>
+                <div>
+                  <span className="font-mono text-xs font-bold text-amber-300 tracking-wider">
+                    {assignModalRequest.id}
+                  </span>
+                  <h3 className="text-xl font-black text-white mt-0.5">
+                    Assign District Work Email
+                  </h3>
+                  <p className="text-xs text-amber-100 mt-0.5">
+                    <strong>{assignModalRequest.fullName}</strong> • {assignModalRequest.site}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setAssignModalRequest(null)}

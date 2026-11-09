@@ -99,6 +99,9 @@ function doPost(e) {
       case "adminOverride":
         return jsonResponse(adminOverride(payload));
 
+      case "sendReminders":
+        return jsonResponse(sendPendingSpecialistReminders(Boolean(payload.isDemo || payload.demoMode)));
+
       case "ensureRequestsTab":
         return jsonResponse(ensureRequestsTab());
 
@@ -1081,4 +1084,191 @@ function sendFinalResolutionEmail(params) {
   `;
 
   sendEmailWithGmailApp_(params.hrEmails, subject, htmlBody, params.ccEmails, params.isDemo);
+}
+
+/**
+ * ------------------------------------------------------------------------------
+ * AUTOMATED 3-DAY REMINDER WORKFLOW
+ * Runs via daily Time-Driven trigger in Apps Script or can be called via web API.
+ * Finds all requests in "In Progress" where >= 3 days have elapsed since
+ * assignment without all specialist items being completed.
+ * ------------------------------------------------------------------------------
+ */
+function sendPendingSpecialistReminders(isDemo) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const reqSheet = findSheet(ss, ["Requests", "Request"]);
+  const specSheet = findSheet(ss, ["Specialist", "Specialists"]);
+
+  if (!reqSheet || !specSheet || reqSheet.getLastRow() < 2) {
+    return { success: true, message: "No requests found to evaluate.", remindersSent: 0 };
+  }
+
+  const now = new Date();
+  const nowMs = now.getTime();
+  const reqData = reqSheet.getDataRange().getValues();
+  const specData = specSheet.getDataRange().getValues();
+
+  // Build topic -> [specialistEmails] map
+  const topicMap = {};
+  const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name"];
+  for (let r = 0; r < specData.length; r++) {
+    const topic = String(specData[r][0] || "").trim();
+    if (!topic) continue;
+    const lower = topic.toLowerCase();
+    if (forbiddenHeaders.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) continue;
+    topicMap[lower] = parseEmailList(specData[r][1]);
+  }
+
+  let remindersSent = 0;
+  const logEntries = [];
+
+  for (let r = 1; r < reqData.length; r++) {
+    const row = reqData[r];
+    const status = String(row[11] || "").trim();
+    if (status !== "In Progress") continue;
+
+    const requestId = String(row[0] || "").trim();
+    const candidateName = `${row[4]} ${row[5]}`.trim();
+    const site = String(row[3] || "").trim();
+    const workEmail = String(row[6] || "").trim();
+    const comments = String(row[14] || "").trim();
+
+    // Determine baseline date: HR Assigned At (Col N), fallback Created At (Col B)
+    const assignedDate = row[13] ? new Date(row[13]) : (row[1] ? new Date(row[1]) : now);
+    const daysSinceAssigned = Math.floor((nowMs - assignedDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysSinceAssigned < 3) continue;
+
+    // Remaining incomplete topics
+    const requestedArr = String(row[9] || "").split(",").map(s => s.trim()).filter(Boolean);
+    const completedArr = String(row[10] || "").split(",").map(s => s.trim()).filter(Boolean);
+    const pendingTopics = requestedArr.filter(reqTopic =>
+      !completedArr.some(c => c.toLowerCase() === reqTopic.toLowerCase())
+    );
+
+    if (pendingTopics.length === 0) continue;
+
+    // Check last reminder timestamp recorded in comments to enforce 3-day spacing
+    const lastReminderMatch = comments.match(/\[Reminder Sent:\s*(\d{4}-\d{2}-\d{2})\]/g);
+    if (lastReminderMatch && lastReminderMatch.length > 0) {
+      const lastEntry = lastReminderMatch[lastReminderMatch.length - 1];
+      const dateMatch = lastEntry.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) {
+        const lastDate = new Date(dateMatch[1]);
+        const daysSinceLastReminder = Math.floor((nowMs - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceLastReminder < 3) {
+          continue; // Already reminded within the last 3 days
+        }
+      }
+    }
+
+    // Map each pending specialist email to the topics they still owe
+    const specialistOwedTopics = {}; // email -> [topics]
+    pendingTopics.forEach(topic => {
+      const emails = topicMap[topic.toLowerCase()] || [];
+      emails.forEach(email => {
+        if (!specialistOwedTopics[email]) specialistOwedTopics[email] = [];
+        specialistOwedTopics[email].push(topic);
+      });
+    });
+
+    const nowStampDate = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    const nowStampTime = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
+
+    // Fire reminders to each specialist
+    Object.keys(specialistOwedTopics).forEach(specEmail => {
+      sendSpecialistReminderEmail({
+        specialistEmail: specEmail,
+        requestId: requestId,
+        candidateName: candidateName,
+        workEmail: workEmail,
+        site: site,
+        pendingTopics: specialistOwedTopics[specEmail],
+        daysPending: daysSinceAssigned,
+        isDemo: isDemo
+      });
+      remindersSent++;
+    });
+
+    // Append reminder note into record
+    const reminderLog = `[${nowStampTime} System Reminder Sent: ${nowStampDate}]: Dispatched 3-day reminder for pending items (${pendingTopics.join(", ")})`;
+    const updatedComments = comments ? `${comments}\n${reminderLog}` : reminderLog;
+    reqSheet.getRange(r + 1, 15).setValue(updatedComments);
+    logEntries.push(`${requestId} (${candidateName}): Reminded ${Object.keys(specialistOwedTopics).join(", ")}`);
+  }
+
+  return {
+    success: true,
+    remindersSent: remindersSent,
+    log: logEntries,
+    timestamp: now.toISOString()
+  };
+}
+
+function sendSpecialistReminderEmail(params) {
+  const subject = `[ACTION REQUIRED - 3-DAY REMINDER] Pending Provisioning: ${params.candidateName} (${params.site})`;
+
+  const topicsListHtml = params.pendingTopics.map(t =>
+    `<li style="margin-bottom: 6px; font-weight: 700; color: #b45309; font-size: 14px;">${t}</li>`
+  ).join("");
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #fde68a; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <div style="background: linear-gradient(135deg, #78350f 0%, #b45309 100%); padding: 22px; text-align: center; color: #ffffff;">
+          <img src="${DISTRICT_LOGO}" alt="WVUSD Logo" style="height: 48px; width: auto; margin-bottom: 6px;" />
+          <h2 style="margin: 0; font-size: 18px; font-weight: 800;">Pending System Provisioning Reminder</h2>
+          <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9;">Action required: ${params.daysPending} days since assignment</p>
+        </div>
+
+        <div style="padding: 24px; color: #1e293b;">
+          <p style="font-size: 14px; margin-top: 0; color: #334155; line-height: 1.5;">
+            This is an automated 3-day reminder that system access for <strong>${params.candidateName}</strong> is still pending your action:
+          </p>
+
+          <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; margin: 16px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr>
+                <td style="color: #92400e; font-weight: 600; width: 130px; padding: 4px 0;">Candidate:</td>
+                <td style="font-weight: 800; color: #78350f; padding: 4px 0;">${params.candidateName}</td>
+              </tr>
+              <tr>
+                <td style="color: #92400e; font-weight: 600; padding: 4px 0;">Work Email:</td>
+                <td style="font-weight: 700; color: #0284c7; padding: 4px 0; font-family: monospace;">${params.workEmail}</td>
+              </tr>
+              <tr>
+                <td style="color: #92400e; font-weight: 600; padding: 4px 0;">School / Site:</td>
+                <td style="padding: 4px 0; font-weight: 600;">${params.site}</td>
+              </tr>
+              <tr>
+                <td style="color: #92400e; font-weight: 600; padding: 4px 0;">Request ID:</td>
+                <td style="padding: 4px 0; font-weight: bold;">${params.requestId}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="margin: 20px 0;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 800; color: #92400e; text-transform: uppercase;">Your Pending Systems to Complete:</p>
+            <ul style="margin: 0; padding-left: 20px;">
+              ${topicsListHtml}
+            </ul>
+          </div>
+
+          <p style="font-size: 13px; color: #475569; line-height: 1.5; margin-top: 20px;">
+            Please log into the WVUSD Onboarding Portal to mark your assigned system items as completed once provisioned.
+          </p>
+        </div>
+
+        <div style="background-color: #f8fafc; padding: 14px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
+          Walnut Valley Unified School District • Automated Reminder Service
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  sendEmailWithGmailApp_(params.specialistEmail, subject, htmlBody, null, params.isDemo);
 }
