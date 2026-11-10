@@ -185,11 +185,16 @@ export function AuthProvider({ children }) {
         const cleanServices = filterForbiddenHeaders(data.services || []);
 
         setPortalData({
+          ...data,
           requests: data.requests || [],
           services: cleanServices,
           sites: data.sites || [],
           hrEmails: data.hrEmails || [],
-          superAdminEmails: data.superAdminEmails || []
+          superAdminEmails: data.superAdminEmails || [],
+          hrSpecialists: data.hrSpecialists || {},
+          hrSubEmails: data.hrSubEmails || [],
+          hrClassifiedEmails: data.hrClassifiedEmails || [],
+          hrCertificatedEmails: data.hrCertificatedEmails || []
         });
 
         if (data.sites?.length > 0 && !impersonatedSite) {
@@ -241,11 +246,16 @@ export function AuthProvider({ children }) {
       const cleanServices = filterForbiddenHeaders(data.services || []);
 
       setPortalData({
+        ...data,
         requests: data.requests || [],
         services: cleanServices,
         sites: data.sites || [],
         hrEmails: data.hrEmails || [],
-        superAdminEmails: data.superAdminEmails || []
+        superAdminEmails: data.superAdminEmails || [],
+        hrSpecialists: data.hrSpecialists || {},
+        hrSubEmails: data.hrSubEmails || [],
+        hrClassifiedEmails: data.hrClassifiedEmails || [],
+        hrCertificatedEmails: data.hrCertificatedEmails || []
       });
 
       const roles = data.currentUser || computeUserRoles(persona.email, data);
@@ -333,11 +343,16 @@ export function AuthProvider({ children }) {
       const cleanServices = filterForbiddenHeaders(data.services || []);
 
       setPortalData({
+        ...data,
         requests: data.requests || [],
         services: cleanServices,
         sites: data.sites || [],
         hrEmails: data.hrEmails || [],
-        superAdminEmails: data.superAdminEmails || []
+        superAdminEmails: data.superAdminEmails || [],
+        hrSpecialists: data.hrSpecialists || {},
+        hrSubEmails: data.hrSubEmails || [],
+        hrClassifiedEmails: data.hrClassifiedEmails || [],
+        hrCertificatedEmails: data.hrCertificatedEmails || []
       });
 
       const roles = data.currentUser || computeUserRoles(email, data);
@@ -388,11 +403,16 @@ export function AuthProvider({ children }) {
       const data = await api.getInitialData(user.email);
       const cleanServices = filterForbiddenHeaders(data.services || []);
       setPortalData({
+        ...data,
         requests: data.requests || [],
         services: cleanServices,
         sites: data.sites || [],
         hrEmails: data.hrEmails || [],
-        superAdminEmails: data.superAdminEmails || []
+        superAdminEmails: data.superAdminEmails || [],
+        hrSpecialists: data.hrSpecialists || {},
+        hrSubEmails: data.hrSubEmails || [],
+        hrClassifiedEmails: data.hrClassifiedEmails || [],
+        hrCertificatedEmails: data.hrCertificatedEmails || []
       });
       const roles = data.currentUser || computeUserRoles(user.email, data);
       setUser(prev => ({ ...prev, ...roles }));
