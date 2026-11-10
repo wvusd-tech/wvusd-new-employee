@@ -8,9 +8,10 @@ import SiteSubmissionView from './components/SiteSubmissionView.jsx';
 import HrView from './components/HrView.jsx';
 import SpecialistView from './components/SpecialistView.jsx';
 import AdminView from './components/AdminView.jsx';
+import { ShieldAlert } from 'lucide-react';
 
 function MainApp() {
-  const { user, isLoading, activeTab, setActiveTab } = useAuth();
+  const { user, isLoading, activeTab, setActiveTab, isDemoMode, logout } = useAuth();
 
   // If user is not signed in, show the WVUSD Login Screen
   if (!user && !isLoading) {
@@ -24,6 +25,41 @@ function MainApp() {
         <div className="flex items-center gap-3 text-sm font-bold text-blue-700 bg-blue-50 px-6 py-3 rounded-2xl border border-blue-200 shadow-sm">
           <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
           <span>Connecting to WVUSD Onboarding Portal...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Strict Roster Authorization: Lock portal down to emails on Specialist or Sites tabs
+  const isAuthorized = user?.isSuperAdmin || user?.isHr || user?.isSpecialist || user?.isSiteStaff;
+  if (user && !isAuthorized && !isDemoMode) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 font-sans">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200 p-8 text-center space-y-5">
+          <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black uppercase bg-amber-100 text-amber-800 tracking-wider">
+              Access Restricted
+            </span>
+            <h2 className="text-xl font-black text-slate-900">
+              Not on Authorized Roster
+            </h2>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Your Google account (<strong className="font-semibold text-slate-900">{user.email}</strong>) is authenticated, but is not currently registered on the district <strong className="font-semibold">Specialist</strong> or <strong className="font-semibold">Sites</strong> tabs.
+            </p>
+            <p className="text-xs text-slate-500">
+              Please contact District IT Administration (Cell D1) to request portal access.
+            </p>
+          </div>
+          <button
+            onClick={logout}
+            type="button"
+            className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition cursor-pointer"
+          >
+            Sign Out
+          </button>
         </div>
       </div>
     );

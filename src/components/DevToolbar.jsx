@@ -59,6 +59,12 @@ export default function DevToolbar() {
     setActiveTab(roleKey);
   };
 
+  // Show toolbar ONLY if user is Super Admin (Specialist!D1) or in Demo Mode
+  // Regular staff (HR, Specialists, Site Staff) NEVER see this toolbar or other staff test personas
+  if (!isSuperAdminUser && !isDemoMode && !user?.isSuperAdmin) {
+    return null;
+  }
+
   // Show view switcher if user is Super Admin, or in Demo Mode, or in Dev persona
   const canAccessAdminControls = isSuperAdminUser || isDemoMode || user?.isSuperAdmin || activePersonaId === 'super_admin';
 
