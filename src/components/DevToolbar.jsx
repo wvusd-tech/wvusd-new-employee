@@ -206,12 +206,16 @@ export default function DevToolbar() {
             </span>
             {personas.map(p => {
               const isSelected = p.id === activePersonaId;
+              const subName = portalData.hrSpecialists?.sub?.name || 'Yesenia';
+              const classifiedName = portalData.hrSpecialists?.classified?.name || 'Martha';
+              const certificatedName = portalData.hrSpecialists?.certificated?.name || 'Lorraine';
+
               const shortLabel =
                 p.id === 'site_admin' ? 'Principal'
                 : p.id === 'site_oa' ? 'Secretary'
-                : p.id === 'hr_sub' ? 'Sub HR'
-                : p.id === 'hr_classified' ? 'Classified HR'
-                : p.id === 'hr_certificated' ? 'Certificated HR'
+                : p.id === 'hr_sub' ? `${subName} (Sub HR)`
+                : p.id === 'hr_classified' ? `${classifiedName} (Classified HR)`
+                : p.id === 'hr_certificated' ? `${certificatedName} (Certificated HR)`
                 : p.id === 'spec_acagnones' ? 'Alex C. (Email/Google)'
                 : p.id === 'spec_sunnygarcia' ? 'Sunny G. (Aeries)'
                 : p.id === 'spec_msakai' ? 'Melissa S. (Aeries)'
@@ -219,6 +223,12 @@ export default function DevToolbar() {
                 : p.id === 'spec_mlewin' ? 'Melody L. (CAASPP)'
                 : p.id === 'super_admin' ? 'Admin'
                 : p.name.split(' ')[0];
+
+              const tooltipTitle =
+                p.id === 'hr_sub' ? `Switch test persona to: ${subName} (Sub HR Coordinator - ${p.email})`
+                : p.id === 'hr_classified' ? `Switch test persona to: ${classifiedName} (Classified HR Coordinator - ${p.email})`
+                : p.id === 'hr_certificated' ? `Switch test persona to: ${certificatedName} (Certificated HR Coordinator - ${p.email})`
+                : `Switch test persona to: ${p.name} (${p.roleName})`;
 
               return (
                 <button
@@ -230,7 +240,7 @@ export default function DevToolbar() {
                       ? "bg-blue-600 text-white font-bold shadow-xs"
                       : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                   }`}
-                  title={`Switch test persona to: ${p.name} (${p.roleName})`}
+                  title={tooltipTitle}
                 >
                   {shortLabel}
                 </button>

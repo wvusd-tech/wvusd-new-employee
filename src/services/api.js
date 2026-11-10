@@ -125,11 +125,16 @@ const DEFAULT_SEED_DATA = {
     { siteName: "Ron Hockwalt Academies", principalEmails: ["principal.rha@wvusd.org"], officeEmails: ["oa.rha@wvusd.org"] },
     { siteName: "District Office", principalEmails: ["do-admin@wvusd.org"], officeEmails: ["do-secretary@wvusd.org"] }
   ],
-  hrSubEmails: ["hr-sub@wvusd.org", "hr@wvusd.org", "kwendland@wvusd.org"],
-  hrClassifiedEmails: ["hr-classified@wvusd.org", "hr@wvusd.org", "kwendland@wvusd.org"],
-  hrCertificatedEmails: ["hr-certificated@wvusd.org", "hr@wvusd.org", "kwendland@wvusd.org"],
-  hrEmails: ["hr-sub@wvusd.org", "hr-classified@wvusd.org", "hr-certificated@wvusd.org", "hr@wvusd.org", "kwendland@wvusd.org"],
-  superAdminEmails: ["admin@wvusd.org", "kwendland@wvusd.org"]
+  hrSubEmails: ["ymarin@wvusd.org", "kwendland@wvusd.org"],
+  hrClassifiedEmails: ["mcaballero@wvusd.org", "kwendland@wvusd.org"],
+  hrCertificatedEmails: ["lvenegas@wvusd.org", "kwendland@wvusd.org"],
+  hrEmails: ["ymarin@wvusd.org", "mcaballero@wvusd.org", "lvenegas@wvusd.org", "kwendland@wvusd.org"],
+  hrSpecialists: {
+    sub: { name: "Yesenia", emails: ["ymarin@wvusd.org"] },
+    classified: { name: "Martha", emails: ["mcaballero@wvusd.org"] },
+    certificated: { name: "Lorraine", emails: ["lvenegas@wvusd.org"] }
+  },
+  superAdminEmails: ["admin@wvusd.org", "kwendland@wvusd.org", "ngonzales@wvusd.org"]
 };
 
 /**

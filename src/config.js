@@ -87,25 +87,25 @@ export const DEV_PERSONAS = [
   },
   {
     id: "hr_sub",
-    name: "Sarah Chen (Sub HR Coordinator)",
-    email: "hr-sub@wvusd.org",
-    roleName: "Sub HR Coordinator",
+    name: "Yesenia Marin (Sub HR)",
+    email: "ymarin@wvusd.org",
+    roleName: "Yesenia Marin (Sub HR Coordinator)",
     site: "District Office",
     description: "Long-Term Sub onboarding queue"
   },
   {
     id: "hr_classified",
-    name: "Rachel Miller (Classified HR)",
-    email: "hr-classified@wvusd.org",
-    roleName: "Classified HR Coordinator",
+    name: "Martha Caballero (Classified HR)",
+    email: "mcaballero@wvusd.org",
+    roleName: "Martha Caballero (Classified HR Coordinator)",
     site: "District Office",
     description: "Classified employee onboarding queue"
   },
   {
     id: "hr_certificated",
-    name: "David Kim (Certificated HR)",
-    email: "hr-certificated@wvusd.org",
-    roleName: "Certificated HR Coordinator",
+    name: "Lorraine Venegas (Certificated HR)",
+    email: "lvenegas@wvusd.org",
+    roleName: "Lorraine Venegas (Certificated HR Coordinator)",
     site: "District Office",
     description: "Certificated employee onboarding queue"
   },
