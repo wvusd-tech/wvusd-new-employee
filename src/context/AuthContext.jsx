@@ -3,7 +3,7 @@
 // Super Admin Role Impersonation, and Live Demo Mode (with sample dataset & email suppression).
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { DEV_PERSONAS, isValidWvusdEmail } from '../config.js';
+import { DEV_PERSONAS, isValidWvusdEmail, normalizeServiceName } from '../config.js';
 import { api, computeUserRoles } from '../services/api.js';
 
 const AuthContext = createContext(null);
@@ -28,7 +28,7 @@ const DEMO_SEED_REQUESTS = [
     workEmail: "",
     originalTeacherName: "",
     originalTeacherEmail: "",
-    accessRequested: ["Outlook Email", "Google Classroom", "Aeries", "Clever"],
+    accessRequested: ["Outlook Email", "Aeries", "Clever", "CAASPP"],
     accessCompleted: [],
     status: "Pending HR",
     submitterEmail: "oa.dbhs@wvusd.org",
@@ -48,7 +48,7 @@ const DEMO_SEED_REQUESTS = [
     workEmail: "sub.erostova@wvusd.org",
     originalTeacherName: "Katherine Miller",
     originalTeacherEmail: "kmiller@wvusd.org",
-    accessRequested: ["Outlook Email", "Google Classroom", "Clever"],
+    accessRequested: ["Outlook Email", "Clever", "CAASPP", "Access to Teacher's Accounts"],
     accessCompleted: ["Outlook Email"],
     status: "In Progress",
     submitterEmail: "oa.whs@wvusd.org",
@@ -68,8 +68,8 @@ const DEMO_SEED_REQUESTS = [
     workEmail: "boconnor@wvusd.org",
     originalTeacherName: "",
     originalTeacherEmail: "",
-    accessRequested: ["Outlook Email", "Clever", "Aeries", "Illuminate"],
-    accessCompleted: ["Outlook Email", "Clever", "Aeries", "Illuminate"],
+    accessRequested: ["Outlook Email", "Clever", "Aeries", "Illuminate", "Add to Staff Email List"],
+    accessCompleted: ["Outlook Email", "Clever", "Aeries", "Illuminate", "Add to Staff Email List"],
     status: "Completed",
     submitterEmail: "oa.chms@wvusd.org",
     hrAssignedAt: new Date(Date.now() - 3600 * 1000 * 40).toISOString(),
@@ -88,7 +88,7 @@ const DEMO_SEED_REQUESTS = [
     workEmail: "sub.jtaylor@wvusd.org",
     originalTeacherName: "Mark Evans",
     originalTeacherEmail: "mevans@wvusd.org",
-    accessRequested: ["Clever", "Aeries", "Illuminate"],
+    accessRequested: ["Clever", "Aeries", "Illuminate", "CAASPP"],
     accessCompleted: [],
     status: "In Progress",
     submitterEmail: "oa.spms@wvusd.org",
@@ -145,16 +145,18 @@ export function AuthProvider({ children }) {
     });
   };
 
-  // Helper to filter out header words like "Topics", "Topic", etc. from services
+  // Helper to filter out header words & removed services, and normalize canonical names
   const filterForbiddenHeaders = (servicesList) => {
-    const FORBIDDEN = ['topic', 'topics', 'service', 'services', 'system', 'systems', 'topic name', 'service name', 'all topics', 'escape'];
-    return (servicesList || []).filter(s => {
-      const name = (typeof s === 'string' ? s : s?.serviceName || '').trim().toLowerCase();
-      if (!name) return false;
-      if (FORBIDDEN.includes(name)) return false;
-      if (name.startsWith('---') || name.startsWith('(')) return false;
-      return true;
-    });
+    const seen = new Set();
+    return (servicesList || [])
+      .map(s => {
+        const rawName = typeof s === 'string' ? s : s?.serviceName || '';
+        const canonical = normalizeServiceName(rawName);
+        if (!canonical || seen.has(canonical)) return null;
+        seen.add(canonical);
+        return typeof s === 'string' ? { serviceName: canonical } : { ...s, serviceName: canonical };
+      })
+      .filter(Boolean);
   };
 
   // Load initial dataset & restore active session if previously saved
@@ -275,15 +277,19 @@ export function AuthProvider({ children }) {
       }
 
       if (persona.id === 'spec_acagnones') {
+        roles.isSuperAdmin = false;
         roles.isSpecialist = true;
-        roles.assignedServices = ["Outlook Email", "Google Account", "add to Staff Email List", "Access to Teacher's accounts"];
+        roles.assignedServices = ["Outlook Email", "Add to Staff Email List", "Access to Teacher's Accounts"];
       } else if (persona.id === 'spec_sunnygarcia' || persona.id === 'spec_msakai') {
+        roles.isSuperAdmin = false;
         roles.isSpecialist = true;
         roles.assignedServices = ["Aeries"];
       } else if (persona.id === 'spec_rrivas') {
+        roles.isSuperAdmin = false;
         roles.isSpecialist = true;
         roles.assignedServices = ["Clever", "Illuminate"];
       } else if (persona.id === 'spec_mlewin') {
+        roles.isSuperAdmin = false;
         roles.isSpecialist = true;
         roles.assignedServices = ["CAASPP"];
       } else if (persona.id.startsWith('tech_specialist') || persona.id === 'service_specialist') {
@@ -430,18 +436,24 @@ export function AuthProvider({ children }) {
         return m ? Math.max(max, parseInt(m[1], 10)) : max;
       }, 1000) + 1;
 
+      const reqType = payload.requestType === "Long-Term Sub" ? "Long-Term Sub" : "New Employee";
+      const sanitizedServices = (Array.isArray(payload.requestedServices) ? payload.requestedServices : [])
+        .map(s => normalizeServiceName(s, reqType))
+        .filter(Boolean);
+
       const newReq = {
         id: `REQ-${nextNum}`,
         createdAt: new Date().toISOString(),
-        requestType: payload.requestType || "New Employee",
+        requestType: reqType,
+        employeeType: payload.employeeType || "Classified",
         site: payload.site,
         firstName: payload.firstName,
         lastName: payload.lastName,
         fullName: `${payload.firstName} ${payload.lastName}`.trim(),
         workEmail: "",
-        originalTeacherName: payload.originalTeacherName || "",
-        originalTeacherEmail: payload.originalTeacherEmail || "",
-        accessRequested: Array.isArray(payload.requestedServices) ? payload.requestedServices : [],
+        originalTeacherName: reqType === "Long-Term Sub" ? (payload.originalTeacherName || "") : "",
+        originalTeacherEmail: reqType === "Long-Term Sub" ? (payload.originalTeacherEmail || "") : "",
+        accessRequested: sanitizedServices,
         accessCompleted: [],
         status: "Pending HR",
         submitterEmail: payload.submitterEmail || user?.email || "staff@wvusd.org",
@@ -489,18 +501,29 @@ export function AuthProvider({ children }) {
 
   const toggleAccessWithDemo = async (payload) => {
     if (isDemoMode) {
+      const targetReq = demoRequests.find(r => r.id === payload.requestId);
+      if (!targetReq) return { success: false, error: "Request not found" };
+      if (!targetReq.workEmail?.trim() || targetReq.status === "Pending HR") {
+        return { success: false, error: "Action locked: HR must assign a Work Email before provisioning can begin." };
+      }
+
       let allDone = false;
+      const targetNorm = String(payload.serviceName || "").trim().toLowerCase();
       setDemoRequests(prev =>
         prev.map(r => {
           if (r.id === payload.requestId) {
             let updatedComp = [...(r.accessCompleted || [])];
             if (payload.completed) {
-              if (!updatedComp.includes(payload.serviceName)) updatedComp.push(payload.serviceName);
+              if (!updatedComp.some(c => c.trim().toLowerCase() === targetNorm)) {
+                updatedComp.push(payload.serviceName);
+              }
             } else {
-              updatedComp = updatedComp.filter(s => s !== payload.serviceName);
+              updatedComp = updatedComp.filter(s => s.trim().toLowerCase() !== targetNorm);
             }
 
-            allDone = r.accessRequested?.length > 0 && r.accessRequested.every(s => updatedComp.includes(s));
+            allDone = r.accessRequested?.length > 0 && r.accessRequested.every(reqSvc =>
+              updatedComp.some(c => c.trim().toLowerCase() === reqSvc.trim().toLowerCase())
+            );
             return {
               ...r,
               accessCompleted: updatedComp,

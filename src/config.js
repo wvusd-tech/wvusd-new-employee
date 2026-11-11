@@ -16,6 +16,63 @@ export const GOOGLE_CLIENT_ID =
 
 export const ALLOWED_DOMAINS = ["wvusd.org"];
 
+export const ALLOWED_SERVICES_NEW_EMPLOYEE = [
+  "Outlook Email",
+  "Aeries",
+  "Clever",
+  "Illuminate",
+  "Add to Staff Email List",
+  "CAASPP"
+];
+
+export const ALLOWED_SERVICES_LONG_TERM_SUB = [
+  "Outlook Email",
+  "Aeries",
+  "Clever",
+  "Illuminate",
+  "Add to Staff Email List",
+  "CAASPP",
+  "Access to Teacher's Accounts"
+];
+
+/**
+ * Normalizes a system/service name to canonical casing and rejects forbidden/removed services.
+ * Returns null if the service is disallowed (e.g. Google Classroom, Google Account, ESCAPE).
+ */
+export function normalizeServiceName(name, requestType = "Long-Term Sub") {
+  if (!name) return null;
+  const clean = String(name).trim();
+  const lower = clean.toLowerCase();
+
+  // Strictly removed / forbidden services & header labels
+  const blocked = [
+    "google classroom",
+    "access to google classroom",
+    "google account",
+    "google workspace",
+    "escape",
+    "topic",
+    "topics",
+    "service",
+    "services",
+    "system",
+    "systems",
+    "topic name",
+    "service name",
+    "all topics"
+  ];
+  if (blocked.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) {
+    return null;
+  }
+
+  const allowedList = requestType === "New Employee"
+    ? ALLOWED_SERVICES_NEW_EMPLOYEE
+    : ALLOWED_SERVICES_LONG_TERM_SUB;
+
+  const matched = allowedList.find(s => s.toLowerCase() === lower);
+  return matched || null;
+}
+
 export const APPS_SCRIPT_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_APPS_SCRIPT_URL) ||
   "https://script.google.com/macros/s/AKfycbwku6NSbPM1gKh9SZURIpLcOV9H5YrBMOqO6Fg-WCKEklRFqkpifdX4W4Aq1tO-KseZ2w/exec";
@@ -113,9 +170,9 @@ export const DEV_PERSONAS = [
     id: "spec_acagnones",
     name: "Alex Cagnones",
     email: "acagnones@wvusd.org",
-    roleName: "Alex Cagnones (Email, Google, Lists)",
+    roleName: "Alex Cagnones (Email, Lists, Sub Access)",
     site: "District Technology",
-    description: "Oversees Outlook Email, Google Account, Staff Email List, Teacher Accounts"
+    description: "Oversees Outlook Email, Add to Staff Email List, Access to Teacher's Accounts"
   },
   {
     id: "spec_sunnygarcia",

@@ -166,6 +166,66 @@ const TECH_SPECIALIST_FALLBACK_NAMES = {
   "mlewin@wvusd.org": "Melody Lewin"
 };
 
+const ALLOWED_SERVICES_NEW_EMPLOYEE = [
+  "Outlook Email",
+  "Aeries",
+  "Clever",
+  "Illuminate",
+  "Add to Staff Email List",
+  "CAASPP"
+];
+
+const ALLOWED_SERVICES_LONG_TERM_SUB = [
+  "Outlook Email",
+  "Aeries",
+  "Clever",
+  "Illuminate",
+  "Add to Staff Email List",
+  "CAASPP",
+  "Access to Teacher's Accounts"
+];
+
+/**
+ * Normalizes a service/system name to canonical casing and filters out removed/forbidden items.
+ * Returns null if invalid or removed (e.g. Google Classroom, Google Account, ESCAPE).
+ */
+function normalizeServiceName_(name, requestType) {
+  if (!name) return null;
+  const clean = String(name).trim();
+  const lower = clean.toLowerCase();
+
+  const blocked = [
+    "google classroom",
+    "access to google classroom",
+    "google account",
+    "google workspace",
+    "escape",
+    "topic",
+    "topics",
+    "service",
+    "services",
+    "system",
+    "systems",
+    "topic name",
+    "service name",
+    "all topics"
+  ];
+  if (blocked.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) {
+    return null;
+  }
+
+  const allowedList = requestType === "New Employee"
+    ? ALLOWED_SERVICES_NEW_EMPLOYEE
+    : ALLOWED_SERVICES_LONG_TERM_SUB;
+
+  for (let i = 0; i < allowedList.length; i++) {
+    if (allowedList[i].toLowerCase() === lower) {
+      return allowedList[i];
+    }
+  }
+  return null;
+}
+
 /**
  * Helper: Routes request to the correct HR specialists based on Sub (C1), Classified (E1), Certificated (F1)
  * Rule:
@@ -308,13 +368,9 @@ function getInitialData(userEmail) {
 
     // Read Topics (Col A), Specialist Emails (Col B), and Specialist Names (Col C: C2:C9)
     for (let r = 0; r < specData.length; r++) {
-      const topicName = String(specData[r][0] || "").trim();
-      if (!topicName) continue;
-
-      const lower = topicName.toLowerCase();
-      // Skip header labels and excluded services (e.g. ESCAPE)
-      const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics", "escape"];
-      if (forbiddenHeaders.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) {
+      const rawTopicName = String(specData[r][0] || "").trim();
+      const canonicalTopic = normalizeServiceName_(rawTopicName);
+      if (!canonicalTopic) {
         continue;
       }
 
@@ -332,7 +388,7 @@ function getInitialData(userEmail) {
       });
 
       services.push({
-        serviceName: topicName,
+        serviceName: canonicalTopic,
         specialistEmails: emailList,
         specialistNames: specialistNames,
         specialistName: specialistNames.join(", ")
@@ -405,11 +461,12 @@ function getInitialData(userEmail) {
       const reqId = String(row[0] || "").trim();
       if (!reqId) continue;
 
+      const reqType = String(row[2] || "New Employee").trim();
       const accessReqStr = String(row[10] || "");
       const accessCompStr = String(row[11] || "");
 
-      const requestedArr = accessReqStr.split(",").map(s => s.trim()).filter(Boolean);
-      const completedArr = accessCompStr.split(",").map(s => s.trim()).filter(Boolean);
+      const requestedArr = accessReqStr.split(",").map(s => normalizeServiceName_(s)).filter(Boolean);
+      const completedArr = accessCompStr.split(",").map(s => normalizeServiceName_(s)).filter(Boolean);
 
       requests.push({
         rowIndex: r + 1,
@@ -500,9 +557,14 @@ function submitRequest(payload) {
     requestedServices = String(payload.requestedServices).split(",").map(s => s.trim()).filter(Boolean);
   }
 
-  // Filter out header labels and excluded services (e.g. ESCAPE)
-  const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics", "escape"];
-  requestedServices = requestedServices.filter(s => !forbiddenHeaders.includes(s.toLowerCase()));
+  // Strictly validate and standardize allowed services by Request Type
+  requestedServices = requestedServices
+    .map(s => normalizeServiceName_(s, cleanType))
+    .filter(Boolean);
+
+  if (requestedServices.length === 0) {
+    return { success: false, error: "At least one valid system access service is required." };
+  }
 
   if (!site || !firstName || !lastName) {
     return { success: false, error: "Site, First Name, and Last Name are required." };
@@ -633,28 +695,24 @@ function assignEmail(payload) {
   const requestedServicesStr = String(targetRow[10] || "");
   const requestedServices = requestedServicesStr
     .split(",")
-    .map(s => s.trim())
+    .map(s => normalizeServiceName_(s))
     .filter(Boolean);
 
   // Group services by specialist email from Specialist tab
   const specialistServiceMap = {};
   if (specSheet) {
     const specData = specSheet.getDataRange().getValues();
-    const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics"];
     for (let r = 0; r < specData.length; r++) {
-      const topicName = String(specData[r][0] || "").trim();
-      if (!topicName) continue;
+      const canonicalTopic = normalizeServiceName_(specData[r][0]);
+      if (!canonicalTopic) continue;
 
-      const lower = topicName.toLowerCase();
-      if (forbiddenHeaders.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) {
-        continue;
-      }
-
-      if (requestedServices.some(s => s.toLowerCase() === topicName.toLowerCase())) {
+      if (requestedServices.some(s => s.toLowerCase() === canonicalTopic.toLowerCase())) {
         const emails = parseEmailList(specData[r][1]);
         emails.forEach(email => {
           if (!specialistServiceMap[email]) specialistServiceMap[email] = [];
-          specialistServiceMap[email].push(topicName);
+          if (!specialistServiceMap[email].includes(canonicalTopic)) {
+            specialistServiceMap[email].push(canonicalTopic);
+          }
         });
       }
     }
@@ -730,17 +788,25 @@ function toggleAccess(payload) {
     return { success: false, error: "Request not found: " + requestId };
   }
 
+  // Lock provisioning actions until HR assigns a Work Email (Col H) and moves status out of Pending HR
+  const assignedWorkEmail = String(targetRow[7] || "").trim();
+  const currentStatus = String(targetRow[12] || "").trim();
+  if (!assignedWorkEmail || currentStatus === "Pending HR") {
+    return { success: false, error: "Action locked: HR must assign a Work Email before specialists can provision access." };
+  }
+
   // Col K (index 10): Access Requested
   // Col L (index 11): Access Completed
-  const requestedArr = String(targetRow[10] || "").split(",").map(s => s.trim()).filter(Boolean);
-  let completedArr = String(targetRow[11] || "").split(",").map(s => s.trim()).filter(Boolean);
+  const canonicalService = normalizeServiceName_(serviceName) || serviceName;
+  const requestedArr = String(targetRow[10] || "").split(",").map(s => normalizeServiceName_(s) || s.trim()).filter(Boolean);
+  let completedArr = String(targetRow[11] || "").split(",").map(s => normalizeServiceName_(s) || s.trim()).filter(Boolean);
 
   if (completed) {
-    if (!completedArr.some(s => s.toLowerCase() === serviceName.toLowerCase())) {
-      completedArr.push(serviceName);
+    if (!completedArr.some(s => s.toLowerCase() === canonicalService.toLowerCase())) {
+      completedArr.push(canonicalService);
     }
   } else {
-    completedArr = completedArr.filter(s => s.toLowerCase() !== serviceName.toLowerCase());
+    completedArr = completedArr.filter(s => s.toLowerCase() !== canonicalService.toLowerCase());
   }
 
   const newCompletedStr = completedArr.join(", ");
@@ -1354,13 +1420,10 @@ function sendPendingSpecialistReminders(isDemo) {
 
   // Build topic -> [specialistEmails] map
   const topicMap = {};
-  const forbiddenHeaders = ["topic", "topics", "service", "services", "system", "systems", "topic name", "service name", "all topics"];
   for (let r = 0; r < specData.length; r++) {
-    const topic = String(specData[r][0] || "").trim();
-    if (!topic) continue;
-    const lower = topic.toLowerCase();
-    if (forbiddenHeaders.includes(lower) || lower.startsWith("---") || lower.startsWith("(")) continue;
-    topicMap[lower] = parseEmailList(specData[r][1]);
+    const canonicalTopic = normalizeServiceName_(specData[r][0]);
+    if (!canonicalTopic) continue;
+    topicMap[canonicalTopic.toLowerCase()] = parseEmailList(specData[r][1]);
   }
 
   let remindersSent = 0;
@@ -1369,12 +1432,12 @@ function sendPendingSpecialistReminders(isDemo) {
   for (let r = 1; r < reqData.length; r++) {
     const row = reqData[r];
     const status = String(row[12] || "").trim(); // Col M (13)
-    if (status !== "In Progress") continue;
+    const workEmail = String(row[7] || "").trim();
+    if (status !== "In Progress" || !workEmail) continue;
 
     const requestId = String(row[0] || "").trim();
     const candidateName = `${row[5]} ${row[6]}`.trim();
     const site = String(row[4] || "").trim();
-    const workEmail = String(row[7] || "").trim();
     const comments = String(row[15] || "").trim(); // Col P (16)
 
     // Determine baseline date: HR Assigned At (Col O / index 14), fallback Created At (Col B / index 1)
@@ -1384,8 +1447,8 @@ function sendPendingSpecialistReminders(isDemo) {
     if (daysSinceAssigned < 3) continue;
 
     // Remaining incomplete topics: Col K (10) and Col L (11)
-    const requestedArr = String(row[10] || "").split(",").map(s => s.trim()).filter(Boolean);
-    const completedArr = String(row[11] || "").split(",").map(s => s.trim()).filter(Boolean);
+    const requestedArr = String(row[10] || "").split(",").map(s => normalizeServiceName_(s) || s.trim()).filter(Boolean);
+    const completedArr = String(row[11] || "").split(",").map(s => normalizeServiceName_(s) || s.trim()).filter(Boolean);
     const pendingTopics = requestedArr.filter(reqTopic =>
       !completedArr.some(c => c.toLowerCase() === reqTopic.toLowerCase())
     );

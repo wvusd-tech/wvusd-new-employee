@@ -1,10 +1,10 @@
 // src/services/api.js
 // Client API for WVUSD Onboarding Portal with Google Apps Script Web App support & offline dev fallback
 
-import { APPS_SCRIPT_URL } from '../config.js';
+import { APPS_SCRIPT_URL, normalizeServiceName } from '../config.js';
 
 // Local storage key for persisting dev mode changes across refreshes
-const STORAGE_KEY_LOCAL_DATA = "wvusd_onboarding_local_data_v1";
+const STORAGE_KEY_LOCAL_DATA = "wvusd_onboarding_local_data_v2";
 
 // Default Seed Data
 export const TECH_SPECIALIST_FALLBACK_NAMES = {
@@ -29,19 +29,19 @@ const DEFAULT_SEED_DATA = {
       workEmail: "mvance@wvusd.org",
       originalTeacherName: "",
       originalTeacherEmail: "",
-      accessRequested: ["Google Workspace", "Aeries SIS Access", "Active Directory & Network Login", "Door Badge & Physical Access"],
-      accessCompleted: ["Google Workspace", "Active Directory & Network Login", "Aeries SIS Access", "Door Badge & Physical Access"],
+      accessRequested: ["Outlook Email", "Aeries", "Clever", "CAASPP"],
+      accessCompleted: ["Outlook Email", "Aeries", "Clever", "CAASPP"],
       status: "Completed",
       submitterEmail: "oa.dbhs@wvusd.org",
       hrAssignedAt: new Date(Date.now() - 3600 * 1000 * 40).toISOString(),
-      comments: "[2026-11-07 09:30 hr@wvusd.org]: Work email provisioned and dispatched.\n[2026-11-07 14:15 tech@wvusd.org]: Network and Google accounts provisioned.\n[2026-11-08 11:00 facilities@wvusd.org]: Keycard badge printed and encoded.",
+      comments: "[2026-11-07 09:30 lvenegas@wvusd.org]: Work email provisioned and dispatched.\n[2026-11-07 14:15 acagnones@wvusd.org]: Outlook Email provisioned.\n[2026-11-08 11:00 mlewin@wvusd.org]: CAASPP access configured.",
       finalNotifiedAt: new Date(Date.now() - 3600 * 1000 * 20).toISOString()
     },
     {
       id: "REQ-1002",
       createdAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
       requestType: "Long-Term Sub",
-      employeeType: "Substitute",
+      employeeType: "Certificated",
       site: "Diamond Bar High",
       firstName: "Elena",
       lastName: "Rostova",
@@ -49,12 +49,12 @@ const DEFAULT_SEED_DATA = {
       workEmail: "sub.erostova@wvusd.org",
       originalTeacherName: "Katherine Miller",
       originalTeacherEmail: "kmiller@wvusd.org",
-      accessRequested: ["Google Workspace", "Aeries SIS Access", "Door Badge & Physical Access"],
-      accessCompleted: ["Google Workspace"],
+      accessRequested: ["Outlook Email", "Aeries", "Clever", "CAASPP", "Access to Teacher's Accounts"],
+      accessCompleted: ["Outlook Email"],
       status: "In Progress",
       submitterEmail: "oa.dbhs@wvusd.org",
       hrAssignedAt: new Date(Date.now() - 3600 * 1000 * 12).toISOString(),
-      comments: "[2026-11-08 16:00 hr@wvusd.org]: Sub email generated. Assigned to coverage for Katherine Miller (Maternity leave).",
+      comments: "[2026-11-08 16:00 ymarin@wvusd.org]: Sub email generated. Assigned to coverage for Katherine Miller (Maternity leave).",
       finalNotifiedAt: ""
     },
     {
@@ -69,7 +69,7 @@ const DEFAULT_SEED_DATA = {
       workEmail: "",
       originalTeacherName: "",
       originalTeacherEmail: "",
-      accessRequested: ["Google Workspace", "Aeries SIS Access", "Active Directory & Network Login", "Keypad & Room Entry Code"],
+      accessRequested: ["Outlook Email", "Aeries", "Add to Staff Email List", "CAASPP"],
       accessCompleted: [],
       status: "Pending HR",
       submitterEmail: "oa.whs@wvusd.org",
@@ -81,31 +81,31 @@ const DEFAULT_SEED_DATA = {
       id: "REQ-1004",
       createdAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
       requestType: "Long-Term Sub",
+      employeeType: "Classified",
       site: "Chaparral Middle",
       firstName: "Samantha",
       lastName: "Wu",
       fullName: "Samantha Wu",
-      workEmail: "",
+      workEmail: "sub.swu@wvusd.org",
       originalTeacherName: "David Henderson",
       originalTeacherEmail: "dhenderson@wvusd.org",
-      accessRequested: ["Google Workspace", "Aeries SIS Access", "Door Badge & Physical Access", "Voicemail & District Extension"],
+      accessRequested: ["Aeries", "Illuminate", "CAASPP", "Access to Teacher's Accounts"],
       accessCompleted: [],
-      status: "Pending HR",
+      status: "In Progress",
       submitterEmail: "oa.chms@wvusd.org",
-      hrAssignedAt: "",
-      comments: "",
+      hrAssignedAt: new Date(Date.now() - 3600 * 1000 * 1).toISOString(),
+      comments: "[2026-11-09 10:00 ymarin@wvusd.org]: Sub email generated and dispatched.",
       finalNotifiedAt: ""
     }
   ],
   services: [
     { serviceName: "Outlook Email", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" },
     { serviceName: "Aeries", specialistEmails: ["sunnygarcia@wvusd.org", "msakai@wvusd.org"], specialistNames: ["Sunny Garcia", "Melissa Sakai"], specialistName: "Sunny Garcia, Melissa Sakai" },
-    { serviceName: "Google Account", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" },
     { serviceName: "Clever", specialistEmails: ["rrivas@wvusd.org"], specialistNames: ["Robert Rivas"], specialistName: "Robert Rivas" },
     { serviceName: "Illuminate", specialistEmails: ["rrivas@wvusd.org"], specialistNames: ["Robert Rivas"], specialistName: "Robert Rivas" },
-    { serviceName: "add to Staff Email List", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" },
-    { serviceName: "Access to Teacher's accounts", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" },
-    { serviceName: "CAASPP", specialistEmails: ["mlewin@wvusd.org"], specialistNames: ["Melody Lewin"], specialistName: "Melody Lewin" }
+    { serviceName: "Add to Staff Email List", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" },
+    { serviceName: "CAASPP", specialistEmails: ["mlewin@wvusd.org"], specialistNames: ["Melody Lewin"], specialistName: "Melody Lewin" },
+    { serviceName: "Access to Teacher's Accounts", specialistEmails: ["acagnones@wvusd.org"], specialistNames: ["Alex Cagnones"], specialistName: "Alex Cagnones" }
   ],
   sites: [
     { siteName: "Diamond Bar High", principalEmails: ["principal.dbhs@wvusd.org"], officeEmails: ["oa.dbhs@wvusd.org", "kwendland@wvusd.org"] },
@@ -204,7 +204,10 @@ export function computeUserRoles(email, { hrEmails, hrSubEmails, hrClassifiedEma
   const assignedServices = [];
   (services || []).forEach(s => {
     if ((s.specialistEmails || []).map(e => e.toLowerCase()).includes(cleanEmail)) {
-      assignedServices.push(s.serviceName);
+      const normalized = normalizeServiceName(s.serviceName);
+      if (normalized && !assignedServices.includes(normalized)) {
+        assignedServices.push(normalized);
+      }
     }
   });
   const isSpecialist = assignedServices.length > 0;
@@ -258,11 +261,14 @@ async function callBackend(action, payload = {}, userEmail = "") {
       const json = await response.json();
       if (json && !json.error) {
         if (Array.isArray(json.services)) {
-          const forbidden = ['topic', 'topics', 'service', 'services', 'system', 'systems', 'topic name', 'service name', 'all topics'];
-          json.services = json.services.filter(s => {
-            const name = (typeof s === 'string' ? s : s?.serviceName || '').trim().toLowerCase();
-            return !forbidden.includes(name) && !name.startsWith('---') && !name.startsWith('(');
-          });
+          json.services = json.services
+            .map(s => {
+              const rawName = typeof s === 'string' ? s : s?.serviceName || '';
+              const normalized = normalizeServiceName(rawName);
+              if (!normalized) return null;
+              return typeof s === 'string' ? { serviceName: normalized } : { ...s, serviceName: normalized };
+            })
+            .filter(Boolean);
         }
         return json;
       }
@@ -310,7 +316,9 @@ async function callBackend(action, payload = {}, userEmail = "") {
       workEmail: "",
       originalTeacherName: reqType === "Long-Term Sub" ? payload.originalTeacherName || "" : "",
       originalTeacherEmail: reqType === "Long-Term Sub" ? payload.originalTeacherEmail || "" : "",
-      accessRequested: Array.isArray(payload.requestedServices) ? payload.requestedServices : [],
+      accessRequested: (Array.isArray(payload.requestedServices) ? payload.requestedServices : [])
+        .map(s => normalizeServiceName(s, reqType))
+        .filter(Boolean),
       accessCompleted: [],
       status: "Pending HR",
       submitterEmail: payload.submitterEmail || userEmail,
@@ -338,6 +346,10 @@ async function callBackend(action, payload = {}, userEmail = "") {
   if (action === "toggleAccess") {
     const req = db.requests.find(r => r.id === payload.requestId);
     if (!req) return { success: false, error: "Request not found" };
+
+    if (!req.workEmail?.trim() || req.status === "Pending HR") {
+      return { success: false, error: "Action locked: HR must assign a Work Email before provisioning can begin." };
+    }
 
     const serviceName = payload.serviceName;
     const completed = Boolean(payload.completed);

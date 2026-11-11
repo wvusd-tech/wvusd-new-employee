@@ -222,7 +222,7 @@ export default function DevToolbar() {
                 : p.id === 'hr_sub' ? `${subName} (Sub HR)`
                 : p.id === 'hr_classified' ? `${classifiedName} (Classified HR)`
                 : p.id === 'hr_certificated' ? `${certificatedName} (Certificated HR)`
-                : p.id === 'spec_acagnones' ? 'Alex C. (Email/Google)'
+                : p.id === 'spec_acagnones' ? 'Alex C. (Email/Lists)'
                 : p.id === 'spec_sunnygarcia' ? 'Sunny G. (Aeries)'
                 : p.id === 'spec_msakai' ? 'Melissa S. (Aeries)'
                 : p.id === 'spec_rrivas' ? 'Robert R. (Clever/Illum)'

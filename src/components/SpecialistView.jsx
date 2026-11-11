@@ -19,7 +19,8 @@ import {
   CheckSquare,
   Square,
   Search,
-  X
+  X,
+  Lock
 } from 'lucide-react';
 
 export default function SpecialistView() {
@@ -46,29 +47,38 @@ export default function SpecialistView() {
   // Determine the services this specialist is responsible for
   // If Super Admin, allow overseeing all services or the selected impersonated topic
   const isSuperAdmin = user?.isSuperAdmin;
-  let myAssignedServices = isSuperAdmin
+  const myAssignedServices = isSuperAdmin
     ? (impersonatedTopic && impersonatedTopic !== 'ALL' ? [impersonatedTopic] : portalData.services.map(s => s.serviceName))
     : user?.assignedServices || [];
 
+  const normSvc = (s) => String(s || '').trim().toLowerCase();
+  const normalizedAssigned = myAssignedServices.map(normSvc).filter(Boolean);
+
+  const getMyServicesForReq = (req) =>
+    (req.accessRequested || []).filter(s => normalizedAssigned.includes(normSvc(s)));
+
+  const isServiceDone = (req, serviceName) =>
+    (req.accessCompleted || []).some(c => normSvc(c) === normSvc(serviceName));
+
   // Filter requests that require at least one service this specialist is responsible for in Col A
   const relevantRequests = portalData.requests.filter(req => {
-    const myServicesForReq = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
+    const myServicesForReq = getMyServicesForReq(req);
     return myServicesForReq.length > 0;
   });
 
   const activeCount = relevantRequests.filter(req => {
-    const myServicesForReq = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
-    return myServicesForReq.some(s => !req.accessCompleted?.includes(s));
+    const myServicesForReq = getMyServicesForReq(req);
+    return myServicesForReq.some(s => !isServiceDone(req, s));
   }).length;
 
   const completedCount = relevantRequests.filter(req => {
-    const myServicesForReq = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
-    return myServicesForReq.length > 0 && myServicesForReq.every(s => req.accessCompleted?.includes(s));
+    const myServicesForReq = getMyServicesForReq(req);
+    return myServicesForReq.length > 0 && myServicesForReq.every(s => isServiceDone(req, s));
   }).length;
 
   const specialistRequests = relevantRequests.filter(req => {
-    const myServicesForReq = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
-    const isCompletedByMe = myServicesForReq.length > 0 && myServicesForReq.every(s => req.accessCompleted?.includes(s));
+    const myServicesForReq = getMyServicesForReq(req);
+    const isCompletedByMe = myServicesForReq.length > 0 && myServicesForReq.every(s => isServiceDone(req, s));
 
     // Toggle filter: In 'active', item disappears as soon as this specialist finishes their portion!
     if (activeFilter === 'active') {
@@ -89,8 +99,12 @@ export default function SpecialistView() {
     return true;
   });
 
-  // Handle checking or unchecking a service
+  // Handle checking or unchecking a service (blocked while HR has not assigned Work Email)
   const handleToggleService = async (request, serviceName, currentCompleted) => {
+    if (!request.workEmail?.trim() || request.status === 'Pending HR') {
+      return;
+    }
+
     const key = `${request.id}_${serviceName}`;
     setToggleLoading(prev => ({ ...prev, [key]: true }));
 
@@ -260,15 +274,18 @@ export default function SpecialistView() {
         {specialistRequests.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {specialistRequests.map(req => {
-              const myServicesForReq = req.accessRequested?.filter(s => myAssignedServices.includes(s)) || [];
-              const allMyServicesDone = myServicesForReq.every(s => req.accessCompleted?.includes(s));
+              const myServicesForReq = getMyServicesForReq(req);
+              const allMyServicesDone = myServicesForReq.every(s => isServiceDone(req, s));
               const isSub = req.requestType === 'Long-Term Sub';
+              const isAwaitingHrEmail = !req.workEmail?.trim() || req.status === 'Pending HR';
 
               return (
                 <div
                   key={req.id}
                   className={`p-5 rounded-3xl border transition shadow-xs flex flex-col justify-between space-y-4 ${
-                    allMyServicesDone
+                    isAwaitingHrEmail
+                      ? 'bg-slate-50/80 border-amber-300/80'
+                      : allMyServicesDone
                       ? 'bg-emerald-50/30 border-emerald-200'
                       : 'bg-white border-slate-200 hover:border-emerald-300'
                   }`}
@@ -302,6 +319,14 @@ export default function SpecialistView() {
                       <StatusBadge status={req.status} size="sm" />
                     </div>
 
+                    {/* Locked Banner Badge if HR has not assigned Work Email yet */}
+                    {isAwaitingHrEmail && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-100/90 text-amber-900 border border-amber-300 text-xs font-bold">
+                        <Lock className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" />
+                        <span>Pending HR - Email Not Assigned</span>
+                      </div>
+                    )}
+
                     {/* Site & Submitter info */}
                     <div className="text-xs text-slate-600 space-y-1">
                       <div className="flex items-center gap-1.5 font-medium">
@@ -325,8 +350,8 @@ export default function SpecialistView() {
                           {req.workEmail}
                         </span>
                       ) : (
-                        <span className="text-xs text-amber-700 italic">
-                          Awaiting HR Email Creation
+                        <span className="text-xs text-amber-700 font-semibold italic">
+                          Pending HR - Email Not Assigned
                         </span>
                       )}
                     </div>
@@ -339,24 +364,30 @@ export default function SpecialistView() {
 
                       <div className="space-y-2">
                         {myServicesForReq.map(service => {
-                          const isDone = req.accessCompleted?.includes(service);
+                          const isDone = isServiceDone(req, service);
                           const loadingKey = `${req.id}_${service}`;
                           const isLoadingToggle = toggleLoading[loadingKey];
+                          const isDisabled = isLoadingToggle || isAwaitingHrEmail;
 
                           return (
                             <button
                               key={service}
                               type="button"
-                              disabled={isLoadingToggle}
-                              onClick={() => handleToggleService(req, service, isDone)}
+                              disabled={isDisabled}
+                              onClick={() => !isAwaitingHrEmail && handleToggleService(req, service, isDone)}
+                              title={isAwaitingHrEmail ? "Locked until HR creates and assigns the candidate's @wvusd.org email" : undefined}
                               className={`w-full flex items-center justify-between p-3 rounded-2xl border text-xs font-bold transition text-left ${
-                                isDone
-                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100/60'
-                                  : 'bg-white border-slate-200 text-slate-800 hover:border-emerald-400 hover:bg-emerald-50/30'
+                                isAwaitingHrEmail
+                                  ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-65 cursor-not-allowed'
+                                  : isDone
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100/60 cursor-pointer'
+                                  : 'bg-white border-slate-200 text-slate-800 hover:border-emerald-400 hover:bg-emerald-50/30 cursor-pointer'
                               }`}
                             >
                               <div className="flex items-center gap-2.5">
-                                {isDone ? (
+                                {isAwaitingHrEmail ? (
+                                  <Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                ) : isDone ? (
                                   <CheckSquare className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                                 ) : (
                                   <Square className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -365,11 +396,19 @@ export default function SpecialistView() {
                               </div>
 
                               <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                isDone
+                                isAwaitingHrEmail
+                                  ? 'bg-slate-200 text-slate-500'
+                                  : isDone
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : 'bg-slate-100 text-slate-500'
                               }`}>
-                                {isLoadingToggle ? "Updating..." : isDone ? "Completed" : "Mark Done"}
+                                {isAwaitingHrEmail
+                                  ? "Locked"
+                                  : isLoadingToggle
+                                  ? "Updating..."
+                                  : isDone
+                                  ? "Completed"
+                                  : "Mark Done"}
                               </span>
                             </button>
                           );

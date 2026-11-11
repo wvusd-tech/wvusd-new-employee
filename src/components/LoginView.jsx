@@ -2,22 +2,17 @@
 import React, { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
-import { DISTRICT_LOGO, isValidWvusdEmail, DEV_PERSONAS } from '../config.js';
+import { DISTRICT_LOGO, isValidWvusdEmail } from '../config.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
   ShieldAlert,
   Lock,
   AlertOctagon,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  UserCheck,
-  Building2,
-  Wrench
+  Sparkles
 } from 'lucide-react';
 
 export default function LoginView({ onLoginSuccess }) {
-  const { loginWithEmail, switchPersona, launchDemoMode, isLoading, authError } = useAuth();
+  const { loginWithEmail, launchDemoMode, isLoading, authError } = useAuth();
   const [localError, setLocalError] = useState(null);
   const [domainBlocked, setDomainBlocked] = useState(false);
   const [blockedEmail, setBlockedEmail] = useState('');
@@ -47,11 +42,6 @@ export default function LoginView({ onLoginSuccess }) {
 
   const handleGoogleError = () => {
     setLocalError('Google Sign-In failed or was cancelled. Please check your network or try again.');
-  };
-
-  const handleDevPersonaSelect = async (personaId) => {
-    await switchPersona(personaId);
-    if (onLoginSuccess) onLoginSuccess();
   };
 
   // 1. DOMAIN LOCK / SECURITY SCREEN
@@ -179,49 +169,6 @@ export default function LoginView({ onLoginSuccess }) {
 
           <div className="text-xs text-slate-500 text-center leading-relaxed">
             Restricted to authenticated <strong className="text-slate-700">@wvusd.org</strong> accounts
-          </div>
-
-          {/* Quick Dev Persona Login Launcher */}
-          <div className="mt-6 pt-4 border-t border-slate-200">
-            <div className="flex items-center justify-between mb-3">
-              <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                Instant Dev Role Switcher
-              </span>
-              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
-                Local Sandbox
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {DEV_PERSONAS.map(p => {
-                let Icon = Building2;
-                if (p.id === 'hr_specialist') Icon = UserCheck;
-                if (p.id === 'service_specialist') Icon = Wrench;
-                if (p.id === 'super_admin') Icon = ShieldCheck;
-
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => handleDevPersonaSelect(p.id)}
-                    className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 text-left transition group"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-blue-100 text-slate-600 group-hover:text-blue-700 flex items-center justify-center flex-shrink-0 transition">
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-slate-900 group-hover:text-blue-700 truncate">
-                        {p.roleName}
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono truncate">
-                        {p.email}
-                      </div>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 transition" />
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </div>
 

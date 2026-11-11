@@ -4,7 +4,11 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../services/api.js';
 import StatusBadge, { TypeBadge, EmployeeTypeBadge } from './StatusBadge.jsx';
 import RequestDetailsModal from './RequestDetailsModal.jsx';
-import { getSiteLogo } from '../config.js';
+import {
+  getSiteLogo,
+  ALLOWED_SERVICES_NEW_EMPLOYEE,
+  ALLOWED_SERVICES_LONG_TERM_SUB
+} from '../config.js';
 import {
   UserPlus,
   Users,
@@ -53,29 +57,18 @@ export default function SiteSubmissionView() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedRequestForModal, setSelectedRequestForModal] = useState(null);
 
-  // Available services from backend, strictly filtering out sheet header labels like "Topics"
-  const FORBIDDEN_HEADERS = [
-    'topic',
-    'topics',
-    'service',
-    'services',
-    'system',
-    'systems',
-    'topic name',
-    'service name',
-    'all topics',
-    'escape'
-  ];
+  // Standardized allowed access services based on Request Type
+  const availableServices =
+    requestType === 'Long-Term Sub'
+      ? ALLOWED_SERVICES_LONG_TERM_SUB
+      : ALLOWED_SERVICES_NEW_EMPLOYEE;
 
-  const availableServices = (portalData.services || [])
-    .map(s => (typeof s === 'string' ? s : s.serviceName))
-    .filter(name => {
-      if (!name) return false;
-      const lower = String(name).trim().toLowerCase();
-      if (FORBIDDEN_HEADERS.includes(lower)) return false;
-      if (lower.startsWith('---') || lower.startsWith('(')) return false;
-      return true;
-    });
+  // Automatically remove Sub-only options (e.g. Access to Teacher's Accounts) if switched to New Employee
+  useEffect(() => {
+    if (requestType !== 'Long-Term Sub') {
+      setSelectedServices(prev => prev.filter(s => ALLOWED_SERVICES_NEW_EMPLOYEE.includes(s)));
+    }
+  }, [requestType]);
 
   // Toggle single service
   const toggleService = (serviceName) => {
