@@ -79,7 +79,7 @@ Maps school sites to authorized principals and office assistants:
 6. Copy the resulting **Web App URL** (ends in `/exec`).
 7. Paste this URL into your `.env` file:
    ```bash
-   VITE_APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbwku6NSbPM1gKh9SZURIpLcOV9H5YrBMOqO6Fg-WCKEklRFqkpifdX4W4Aq1tO-KseZ2w/exec"
+   VITE_APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzb1j42QJcwla6xWrLxy5GX94xN194L5rxlJXkTQeTDM9c-7XlsMFy0UZ0WheV6jim0Iw/exec"
    ```
 
 ---

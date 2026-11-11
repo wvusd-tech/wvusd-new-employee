@@ -75,7 +75,7 @@ export function normalizeServiceName(name, requestType = "Long-Term Sub") {
 
 export const APPS_SCRIPT_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_APPS_SCRIPT_URL) ||
-  "https://script.google.com/macros/s/AKfycbwku6NSbPM1gKh9SZURIpLcOV9H5YrBMOqO6Fg-WCKEklRFqkpifdX4W4Aq1tO-KseZ2w/exec";
+  "https://script.google.com/macros/s/AKfycbzb1j42QJcwla6xWrLxy5GX94xN194L5rxlJXkTQeTDM9c-7XlsMFy0UZ0WheV6jim0Iw/exec";
 
 export const SITE_LOGOS = {
   "diamond bar": "https://res.cloudinary.com/djv9u4054/image/upload/v1783632852/0-DBARBRAHMASWide_q8uled-removebg-preview_x7ta88.png",
